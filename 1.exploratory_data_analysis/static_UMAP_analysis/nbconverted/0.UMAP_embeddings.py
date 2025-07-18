@@ -51,7 +51,7 @@ if root_dir is None:
 
 
 # Set the round ID for the current analysis
-round_id = "Round_1_data"
+round_id = "Round_2_data"
 
 # Create the directory for saving figures
 figures_dir = pathlib.Path(f"./figures/{round_id}")
@@ -60,7 +60,7 @@ figures_dir.mkdir(exist_ok=True)
 # directory to the single-cell data (based on local system)
 data_dir = pathlib.Path(
     f"../../../pediatric_cancer_atlas_profiling/3.preprocessing_features/data/single_cell_profiles/{round_id}/"
-)
+).resolve(strict=True)
 
 # create a list of paths to each feature-selected profile
 feature_selected_files = list(data_dir.rglob("*_feature_selected.parquet"))
@@ -286,7 +286,7 @@ for plate_name, final_df in umap_results_dict.items():
 
     # Plot
     plt.figure(figsize=(12, 8))
-    sns.scatterplot(
+    scatter = sns.scatterplot(
         data=final_df,
         x="UMAP0",
         y="UMAP1",
@@ -301,14 +301,70 @@ for plate_name, final_df in umap_results_dict.items():
     plt.xlabel("UMAP0", fontsize=14)
     plt.ylabel("UMAP1", fontsize=14)
 
-    # Customize and reposition the legend
-    plt.legend(
+    # Split legends manually
+    ax = plt.gca()
+
+    # Get handles and labels
+    handles, labels = ax.get_legend_handles_labels()
+
+    # Prepare sets for unique legends
+    cell_line_handles = []
+    cell_line_labels = []
+    seeding_handles = []
+    seeding_labels = []
+
+    # Use a set to track seen labels and avoid duplicates
+    seen_labels = set()
+
+    for handle, label in zip(handles, labels):
+        if label in seen_labels or label == "":
+            continue  # Skip duplicates and empty labels
+        seen_labels.add(label)
+
+        if label in final_df["Metadata_cell_line"].unique():
+            cell_line_handles.append(handle)
+            cell_line_labels.append(label)
+        elif (
+            label.isdigit()
+        ):  # seeding densities are numeric strings like '1000', '2000', etc.
+            seeding_handles.append(handle)
+            seeding_labels.append(label)
+
+    # Remove the automatic legend
+    ax.legend_.remove()
+
+    # Dynamically set vertical position based on number of cell lines
+    if round_id == "Round_2_data" and len(cell_line_labels) > 7:
+        cell_line_legend_y = 0.90  # Higher position for Round_2 with many cell lines
+    elif len(cell_line_labels) > 7:
+        cell_line_legend_y = 0.85  # Higher position for many cell lines in other rounds
+    else:
+        cell_line_legend_y = 0.70  # Default position
+
+    # Add the cell line legend
+    legend1 = ax.legend(
+        cell_line_handles,
+        cell_line_labels,
+        title="Cell line",
         fontsize=10,
         title_fontsize=12,
-        loc="center left",
-        bbox_to_anchor=(1.05, 0.5),
-        ncol=2,
+        loc="upper left",
+        bbox_to_anchor=(1.02, cell_line_legend_y),
     )
+
+    # Add the seeding density legend directly below it
+    legend2 = ax.legend(
+        seeding_handles,
+        seeding_labels,
+        title="Seeding density",
+        fontsize=10,
+        title_fontsize=12,
+        loc="upper left",
+        bbox_to_anchor=(1.02, 0.45),  # Adjust this to move it up/down
+    )
+
+    # Make sure both legends are on the plot
+    ax.add_artist(legend1)
 
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.tight_layout()
@@ -367,8 +423,8 @@ plt.legend(
     fontsize=10,
     title_fontsize=12,
     loc="center left",
-    bbox_to_anchor=(1.05, 0.5),
-    ncol=2,
+    bbox_to_anchor=(1.02, 0.5),
+    ncol=1,
 )
 plt.grid(True, linestyle="--", alpha=0.6)
 plt.tight_layout()
