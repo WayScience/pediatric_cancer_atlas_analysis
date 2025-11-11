@@ -42,7 +42,7 @@ class AlbumentationsBackend:
         if A is None:
             raise RuntimeError("Albumentations is not installed.")
 
-        img_hwc = to_hwc(img)#.astype(np.float32)
+        img_hwc = to_hwc(img)
         out = A.Compose([self.transform], seed=seed)(image=img_hwc)["image"]
         
         return to_chw(out)
