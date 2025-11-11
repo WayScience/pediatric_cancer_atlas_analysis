@@ -43,6 +43,11 @@ class AlbumentationsBackend:
             raise RuntimeError("Albumentations is not installed.")
 
         img_hwc = to_hwc(img)
+
+        # Had to wrap in Compose per call to configure seed.
+        # This backend is invoked by the GenericTransformHook per image,
+        # receiving seeds from hashing the image path + salt for reproducible
+        # yet varied transformations.
         out = A.Compose([self.transform], seed=seed)(image=img_hwc)["image"]
         
         return to_chw(out)
