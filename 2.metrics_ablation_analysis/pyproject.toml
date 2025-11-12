@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.9,<3.13"
 dependencies = [
     "imagecodecs",
-    "cv2",
     "torch",
     "seaborn",
     "matplotlib",
@@ -20,13 +19,15 @@ dependencies = [
     "albumentations",
     "pyarrow"
 ]
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_backend"
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-dir]
-"" = "src"
