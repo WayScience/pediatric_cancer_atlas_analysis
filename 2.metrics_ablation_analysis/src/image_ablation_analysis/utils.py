@@ -61,3 +61,33 @@ def to_chw(image: np.ndarray) -> np.ndarray:
     elif image.ndim != 3:
         raise ValueError(f"Expected 2D or 3D image, got shape {image.shape}")
     return np.transpose(image, (2, 0, 1))
+
+
+def sanitize_for_json(obj):
+    """
+    Recursively convert numpy types to Python native types for JSON serialization.
+    
+    Handles:
+    - numpy integers (np.int8, np.int32, np.int64, etc.) -> int
+    - numpy floats (np.float16, np.float32, np.float64, etc.) -> float
+    - numpy arrays -> list
+    - numpy booleans -> bool
+    - dicts, lists, tuples (recursive)
+    
+    :param obj: Object to sanitize (dict, list, numpy type, etc.)
+    :return: Sanitized object with Python native types
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return sanitize_for_json(obj.tolist())
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    else:
+        return obj

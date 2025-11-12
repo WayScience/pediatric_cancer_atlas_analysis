@@ -29,6 +29,7 @@ import tifffile as tiff
 
 from ..ablation_runner import AugVariant
 from .normalization import BitDepthNormalizer
+from ..utils import sanitize_for_json
 
 
 class TransformBackend(Protocol):
@@ -178,7 +179,7 @@ class GenericTransformHook:
         params = {
             "backend": self.backend.name,
             "transform_name": self._tname,
-            "transform_params": self._tparams,
+            "transform_params": sanitize_for_json(self._tparams),
             "param_hash": self._param_hash,
             "config_id": self.config_id,
             "seed_strategy": "fixed" if self.fixed_seed is not None else "per_image_hash",
@@ -186,10 +187,13 @@ class GenericTransformHook:
             "normalizer": getattr(self.normalizer, "name", type(self.normalizer).__name__),
         }
 
+        # Sanitize norm_info to ensure numpy types are converted to Python native types
+        sanitized_norm_info = sanitize_for_json(norm_info) if norm_info else None
+
         yield AugVariant(
             variant=variant, 
             image=image_payload, 
             params=params,
             orig_dtype=str(raw.dtype),
-            norm_info=norm_info,
+            norm_info=sanitized_norm_info,
         )
