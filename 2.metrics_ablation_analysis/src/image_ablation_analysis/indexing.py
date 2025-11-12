@@ -55,7 +55,7 @@ class ParquetIndex:
             pa.field("original_rel_path", pa.string()),
             pa.field("aug_abs_path", pa.string()),
             pa.field("aug_rel_path", pa.string()),
-            pa.field("variant", pa.string()),
+            pa.field("config_id", pa.string()), 
             pa.field("params_json", pa.string()),
         ]
         return pa.schema(fields)
