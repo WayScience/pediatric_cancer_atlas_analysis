@@ -40,6 +40,8 @@ class AugVariant:
     variant: str
     image: Any
     params: Dict[str, Any]
+    orig_dtype: Optional[str] = None
+    norm_info: Optional[Dict[str, Any]] = None
 
 
 class AblationRunner:
