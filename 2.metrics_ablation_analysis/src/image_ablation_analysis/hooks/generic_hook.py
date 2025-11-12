@@ -28,6 +28,7 @@ import numpy as np
 import tifffile as tiff
 
 from ..ablation_runner import AugVariant
+from .normalization import BitDepthNormalizer
 
 
 class TransformBackend(Protocol):
@@ -88,6 +89,8 @@ class GenericTransformHook:
         fixed_seed: Optional[int] = None,
         per_chan: bool = False,
         variant_name: Optional[str] = None,
+        normalizer: Optional[BitDepthNormalizer] = None,
+        return_original_dtype: bool = False,
     ):
         """
         :param backend: TransformBackend instance defining the transformation.
@@ -96,6 +99,11 @@ class GenericTransformHook:
             Otherwise, seed is generated per-image based on path hash.
         :param per_chan: If True, apply transform per channel (for multi-channel images).
         :param variant_name: If provided, override the variant name used in the id.
+        :param normalizer: Optional normalizer to apply before transformation.
+            Expected to be of type BitDepthNormalizer now to cater to
+            albumentations' need for 0-1 float images for ablation to work
+            expectedly. In the future other normalizers may be supported.
+        :param return_original_dtype: If True, include original dtype and norm_info in AugVariant
         """
         
         self.backend = backend
@@ -104,6 +112,9 @@ class GenericTransformHook:
         self.per_chan = per_chan
         self.variant_name_override = variant_name
 
+        self.normalizer = normalizer or BitDepthNormalizer()
+        self.return_original_dtype = return_original_dtype
+
         # capture a static description for variant id
         tname, tparams = self.backend.describe()
         self._tname = tname
@@ -111,7 +122,7 @@ class GenericTransformHook:
         self._param_hash = _stable_hash_from_params(tparams)
         self.config_id = f"{self.backend.name}:{self._tname}:{self._param_hash}"
 
-    def __call__(self, src_path: Path) -> Iterable[AugVariant]:
+    def __call__(self, src_path: Path, bit_depth: Optional[int] = None) -> Iterable[AugVariant]:
         """
         Apply the transformation to the image at src_path. 
         Generates per image seed to ensure reproducibility while allowing
@@ -135,10 +146,14 @@ class GenericTransformHook:
             )
         
         # normalize and cast to float32 by default to minimize compatibility issues
-        img = tiff.imread(str(src_path))
-        bit_depth = img.itemsize * 8
-        img = img.astype(np.float32) / (2 ** bit_depth - 1) 
+        raw = tiff.imread(str(src_path))
 
+        # normalize via configured normalizer
+        img, norm_info = self.normalizer.normalize(
+            raw, bit_depth=bit_depth, path=src_path
+        )
+
+        # apply per-channel or full-image transform
         if self.per_chan and img.ndim == 3 and img.shape[0] > 1:
             slices = []
             for z in range(img.shape[0]):
@@ -148,6 +163,13 @@ class GenericTransformHook:
             out = np.stack(slices, axis=0) # back to chw
         else:
             out = self.backend.apply(img, seed=seed) # all backends should return chw
+
+        # optional inverse normalization to original dtype
+        if self.return_original_dtype:
+            out_for_save = self.normalizer.denormalize(out, norm_info)
+            image_payload = out_for_save
+        else:
+            image_payload = out
 
         # build variant id: prefix-backend-transform-shortHash
         base_name = self.variant_name_override or f"{self.backend.name}-{self._tname}"
@@ -161,6 +183,13 @@ class GenericTransformHook:
             "config_id": self.config_id,
             "seed_strategy": "fixed" if self.fixed_seed is not None else "per_image_hash",
             "per_chan": self.per_chan,
+            "normalizer": getattr(self.normalizer, "name", type(self.normalizer).__name__),
         }
 
-        yield AugVariant(variant=variant, image=out, params=params)
+        yield AugVariant(
+            variant=variant, 
+            image=image_payload, 
+            params=params,
+            orig_dtype=str(raw.dtype),
+            norm_info=norm_info,
+        )
