@@ -69,7 +69,6 @@ class AblationRunner:
         index_filename: str = "ablated_index",
         keep_meta_columns: Optional[List[str]] = None,
         suffixes: Optional[Iterable[str]] = TIFF_SUFFIXES,
-        writer: Optional[Callable[[Path, Any], None]] = None,
         skip_if_indexed: bool = True,
         dry_run: bool = False,
     ):
@@ -83,7 +82,6 @@ class AblationRunner:
         :param keep_meta_columns: List of metadata columns to keep from loaddata.
             If None, keeps all columns present in loaddata.
         :param suffixes: Iterable of file suffixes (including dot) to consider as images.
-        :param writer: Optional callable to write images. If None, uses tifffile.imwrite.
         :param skip_if_indexed: If True, skip images already present in index.
         :param dry_run: If True, do not write any files; only simulate.
         """
@@ -91,7 +89,6 @@ class AblationRunner:
         self.ablation_root = check_path(ablation_root, ensure_dir=True)
         
         self.suffixes = suffixes
-        self.writer = writer or tiff.imwrite
 
         self.loaddata = LoadDataIndex(
             [Path(p) for p in loaddata_csvs]
