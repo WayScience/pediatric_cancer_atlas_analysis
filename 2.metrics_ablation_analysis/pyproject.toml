@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.9,<3.13"
 dependencies = [
     "imagecodecs",
+    "tqdm",
     "torch",
     "seaborn",
     "matplotlib",
@@ -17,7 +18,9 @@ dependencies = [
     "ipython",
     "notebook",
     "albumentations",
-    "pyarrow"
+    "pyarrow",
+    "tifffile",
+    "pandas",
 ]
 [project.optional-dependencies]
 dev = ["pytest"]
