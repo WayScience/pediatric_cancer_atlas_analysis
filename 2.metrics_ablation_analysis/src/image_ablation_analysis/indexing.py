@@ -107,6 +107,22 @@ class ParquetIndex:
 
         return None
 
+    def read(self) -> pd.DataFrame:
+        """
+        Read the entire index as a pandas DataFrame.
+        Intended for testing and analysis purposes.
+
+        :return: DataFrame containing all index records, or empty DataFrame if no data.
+        """
+        dset = self._open_dataset_safe()
+        if dset is None:
+            return pd.DataFrame()
+        
+        try:
+            return dset.to_table().to_pandas()
+        except Exception:
+            return pd.DataFrame()
+
     def materialize_seen_pairs(self) -> set[tuple[str, str]]:
         """
         Load existing (original_abs_path, variant) pairs, returning an empty set
