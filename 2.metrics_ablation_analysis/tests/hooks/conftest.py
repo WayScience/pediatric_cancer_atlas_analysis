@@ -8,10 +8,15 @@ from pathlib import Path
 
 import pytest
 import numpy as np
+import albumentations as A
 
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
+from image_ablation_analysis.hooks.albumentations import AlbumentationsBackend
 
 
+"""
+normalization testing fixtures
+"""
 @pytest.fixture
 def normalizer():
     """BitDepthNormalizer instance with auto-inferred bit depth."""
@@ -88,3 +93,43 @@ def float16_normalized():
 def bool_image():
     """Boolean test image."""
     return np.array([[True, False, True], [False, True, False]], dtype=np.bool_)
+
+"""
+albumentation backend testing fixtures
+"""
+
+
+@pytest.fixture
+def synthetic_image():
+    """
+    Create a synthetic normalized float32 single-channel image (CxHxW format).
+    Values in [0, 1] range as expected by the backend after normalization.
+    """
+    np.random.seed(42)
+    # Create a 1x64x64 image (single channel)
+    img = np.random.rand(1, 64, 64).astype(np.float32)
+    return img
+
+
+@pytest.fixture
+def backend_no_noise():
+    """Backend with GaussNoise that should produce near-identical output (std=0)."""
+    transform = A.GaussNoise(
+        std_range=(0.0, 0.0),  # zero standard deviation
+        mean_range=(0.0, 0.0),  # zero mean
+        noise_scale_factor=1.0,
+        p=1.0  # always apply
+    )
+    return AlbumentationsBackend(transform=transform)
+
+
+@pytest.fixture
+def backend_with_noise():
+    """Backend with GaussNoise that should produce different output (std>0)."""
+    transform = A.GaussNoise(
+        std_range=(0.1, 0.1),  # std of 0.1
+        mean_range=(0.0, 0.0),  # zero mean
+        noise_scale_factor=1.0,
+        p=1.0  # always apply
+    )
+    return AlbumentationsBackend(transform=transform)
