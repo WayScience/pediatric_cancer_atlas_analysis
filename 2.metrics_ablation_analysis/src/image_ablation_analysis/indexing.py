@@ -115,10 +115,15 @@ class ParquetIndex:
             to update the index to reflect newly created ablations.
 
         :param df: DataFrame containing the rows to append.
+        :raises ValueError: If DataFrame is missing required columns from _schema().
         """
         if df.empty:
             return
+        
+        # Validate that the DataFrame has all required columns
         table = pa.Table.from_pandas(df, preserve_index=False)
+        self._validate_required_columns(table.schema)
+        
         # use a time-based unique file name
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         file_path = self.index_dir / f"aug_index_{ts}.parquet"
@@ -132,10 +137,14 @@ class ParquetIndex:
         Intended for testing and analysis purposes.
 
         :return: DataFrame containing all index records, or empty DataFrame if no data.
+        :raises ValueError: If any parquet file in the index is missing required columns.
         """
         dset = self._open_dataset_safe()
         if dset is None:
             return pd.DataFrame()
+        
+        # Validate that the dataset has all required columns
+        self._validate_required_columns(dset.schema)
         
         try:
             return dset.to_table().to_pandas()
@@ -150,28 +159,27 @@ class ParquetIndex:
         been processed and skip on a single-image basis.
 
         :return: set of (original_abs_path, config_id) pairs already in the index.
+        :raises ValueError: If the index has missing required columns from _schema().
         """
         dset = self._open_dataset_safe()
         if dset is None:
             return set()
 
-        required = {"original_abs_path", "config_id"}
-        have = {f.name for f in dset.schema}
-        if not required.issubset(have):
-            # No data files written yet (or old schema) → nothing to skip
-            return set()
+        # Validate that the dataset has all required columns
+        self._validate_required_columns(dset.schema)
 
+        needed = ["original_abs_path", "config_id"]
         pairs: set[tuple[str, str]] = set()
         try:
-            scanner = dset.scanner(columns=list(required))
+            scanner = dset.scanner(columns=needed)
             for batch in scanner.to_batches():
                 
                 tab = pa.Table.from_batches([batch]).to_pandas()[
-                    ["original_abs_path", "config_id"]
+                    needed
                 ]
                 pairs.update(map(
                     tuple, 
-                    tab[["original_abs_path", "config_id"]].itertuples(
+                    tab[needed].itertuples(
                         index=False, name=None)))
         except (FileNotFoundError, pa.ArrowInvalid):
             # Treat as empty if anything schema/files related pops
@@ -185,14 +193,15 @@ class ParquetIndex:
         by the runner. 
 
         Uses partition pruning if you partitioned by config_id.
+        
+        :raises ValueError: If the index has missing required columns from _schema().
         """
         dset = self._open_dataset_safe()
         if dset is None:
             return set()
 
-        needed = {"original_abs_path", "config_id"}
-        if not needed.issubset({f.name for f in dset.schema}):
-            return set()
+        # Validate that the dataset has all required columns
+        self._validate_required_columns(dset.schema)
 
         import pyarrow.dataset as ds
         filt = ds.field("config_id") == config_id

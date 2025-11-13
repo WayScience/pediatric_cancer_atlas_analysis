@@ -166,19 +166,15 @@ class TestParquetIndexErrorHandling:
         file_path = temp_parquet_index_dir / f"aug_index_{ts}.parquet"
         pq.write_table(table, str(file_path))
         
-        # Attempting to read should gracefully handle or raise
-        # (Currently read() catches exceptions, but we can verify behavior)
-        result_df = index.read()
-        # If exception is caught internally, we get partial/empty result
-        # This tests that the code doesn't crash
-        assert isinstance(result_df, pd.DataFrame)
+        # Should raise ValueError due to missing required columns
+        with pytest.raises(ValueError, match="Schema missing required columns"):
+            index.read()
 
 
     def test_materialize_seen_pairs_incomplete_schema(self, temp_parquet_index_dir, parquet_index_incomplete_schema_df):
         """
-        Test that materialize_seen_pairs handles parquet files with incomplete schema
-        (missing non-essential columns like params_json and variant).
-        The method still returns data if it has the required columns (original_abs_path, config_id).
+        Test that materialize_seen_pairs raises ValueError when the index has
+        missing required columns from _schema().
         """
         import pyarrow as pa
         import pyarrow.parquet as pq
@@ -187,25 +183,20 @@ class TestParquetIndexErrorHandling:
         index = ParquetIndex(temp_parquet_index_dir)
         
         # Manually write incomplete schema parquet file
-        # Note: parquet_index_incomplete_schema_df still has original_abs_path and config_id
         table = pa.Table.from_pandas(parquet_index_incomplete_schema_df, preserve_index=False)
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         file_path = temp_parquet_index_dir / f"aug_index_{ts}.parquet"
         pq.write_table(table, str(file_path))
         
-        # Should return the pair since required columns are present
-        seen_pairs = index.materialize_seen_pairs()
-        assert isinstance(seen_pairs, set)
-        # Should have the one pair from the incomplete schema data
-        assert len(seen_pairs) == 1
-        assert ("/data/image1.tiff", "cfg_001") in seen_pairs
+        # Should raise ValueError due to missing required columns
+        with pytest.raises(ValueError, match="Schema missing required columns"):
+            index.materialize_seen_pairs()
 
 
     def test_list_done_paths_for_incomplete_schema(self, temp_parquet_index_dir, parquet_index_incomplete_schema_df):
         """
-        Test that list_done_paths_for handles parquet files with incomplete schema
-        (missing non-essential columns like params_json and variant).
-        The method still returns data if it has the required columns (original_abs_path, config_id).
+        Test that list_done_paths_for raises ValueError when the index has
+        missing required columns from _schema().
         """
         import pyarrow as pa
         import pyarrow.parquet as pq
@@ -214,24 +205,20 @@ class TestParquetIndexErrorHandling:
         index = ParquetIndex(temp_parquet_index_dir)
         
         # Manually write incomplete schema parquet file
-        # Note: parquet_index_incomplete_schema_df still has original_abs_path and config_id
         table = pa.Table.from_pandas(parquet_index_incomplete_schema_df, preserve_index=False)
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         file_path = temp_parquet_index_dir / f"aug_index_{ts}.parquet"
         pq.write_table(table, str(file_path))
         
-        # Should return the path since required columns are present
-        paths = index.list_done_paths_for("cfg_001")
-        assert isinstance(paths, set)
-        # Should have the one path from the incomplete schema data
-        assert len(paths) == 1
-        assert "/data/image1.tiff" in paths
+        # Should raise ValueError due to missing required columns
+        with pytest.raises(ValueError, match="Schema missing required columns"):
+            index.list_done_paths_for("cfg_001")
 
 
     def test_materialize_seen_pairs_missing_required_columns(self, temp_parquet_index_dir, parquet_index_missing_path_config_df):
         """
-        Test that materialize_seen_pairs returns empty set when required columns
-        (original_abs_path, config_id) are missing from the parquet file.
+        Test that materialize_seen_pairs raises ValueError when required columns
+        (from _schema) are missing from the parquet file.
         """
         import pyarrow as pa
         import pyarrow.parquet as pq
@@ -245,16 +232,15 @@ class TestParquetIndexErrorHandling:
         file_path = temp_parquet_index_dir / f"aug_index_{ts}.parquet"
         pq.write_table(table, str(file_path))
         
-        # Should return empty set since required columns are missing
-        seen_pairs = index.materialize_seen_pairs()
-        assert isinstance(seen_pairs, set)
-        assert len(seen_pairs) == 0
+        # Should raise ValueError since required columns from _schema are missing
+        with pytest.raises(ValueError, match="Schema missing required columns"):
+            index.materialize_seen_pairs()
 
 
     def test_list_done_paths_for_missing_required_columns(self, temp_parquet_index_dir, parquet_index_missing_path_config_df):
         """
-        Test that list_done_paths_for returns empty set when required columns
-        (original_abs_path, config_id) are missing from the parquet file.
+        Test that list_done_paths_for raises ValueError when required columns
+        (from _schema) are missing from the parquet file.
         """
         import pyarrow as pa
         import pyarrow.parquet as pq
@@ -268,10 +254,9 @@ class TestParquetIndexErrorHandling:
         file_path = temp_parquet_index_dir / f"aug_index_{ts}.parquet"
         pq.write_table(table, str(file_path))
         
-        # Should return empty set since required columns are missing
-        paths = index.list_done_paths_for("cfg_001")
-        assert isinstance(paths, set)
-        assert len(paths) == 0
+        # Should raise ValueError since required columns from _schema are missing
+        with pytest.raises(ValueError, match="Schema missing required columns"):
+            index.list_done_paths_for("cfg_001")
 
 
     def test_append_records_empty_dataframe(self, temp_parquet_index_dir):
@@ -286,3 +271,15 @@ class TestParquetIndexErrorHandling:
         # Verify nothing was written
         parquet_files = list(temp_parquet_index_dir.glob("*.parquet"))
         assert len(parquet_files) == 0
+
+
+    def test_append_records_incomplete_schema(self, temp_parquet_index_dir, parquet_index_incomplete_schema_df):
+        """
+        Test that append_records raises ValueError when DataFrame is missing
+        required columns from _schema().
+        """
+        index = ParquetIndex(temp_parquet_index_dir)
+        
+        # Should raise ValueError due to missing required columns
+        with pytest.raises(ValueError, match="Schema missing required columns"):
+            index.append_records(parquet_index_incomplete_schema_df)
