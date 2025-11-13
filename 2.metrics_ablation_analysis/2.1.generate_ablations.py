@@ -13,6 +13,7 @@ import pathlib
 import numpy as np
 
 from image_ablation_analysis.ablation_runner import AblationRunner
+from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.sweeps import (
     grid_distort_sweep,
     gauss_noise_sweep,
@@ -45,27 +46,31 @@ runner = AblationRunner(
 )
 
 # Define a collection of ablation sweeps to perform
+hook_kwargs = {
+    "normalizer": BitDepthNormalizer(bit_depth=16),
+    "return_original_dtype": True,
+}
 sweep_hooks = [
     # Non-uniform morpholoical changes to the image
-    grid_distort_sweep(distort_limit_values=[0.1, 0.2, 0.4, 0.6, 0.8, 1.0]),
+    grid_distort_sweep(distort_limit_values=[0.1, 0.2, 0.4, 0.6, 0.8, 1.0], **hook_kwargs),
     
     # gaussian noise and blur sweeps with roughly equidistant increments
     # the albumentation gaussian noise with std=x y times is approximately equivalent
     # to adding a one time gaussian noise with std=sqrt(y)*x
-    gauss_noise_sweep(std_range_values=[np.sqrt(i) * 0.1 for i in [1, 2, 3, 4, 5, 6]]),
+    gauss_noise_sweep(std_range_values=[np.sqrt(i) * 0.1 for i in [1, 2, 3, 4, 5, 6]], **hook_kwargs),
     # blur sweep handles sigma scaling internally, so we just provide number of iterations
-    blur_sweep(its = [10, 20, 30, 40, 50, 60], sigma_base=0.8),
+    blur_sweep(its = [10, 20, 30, 40, 50, 60], sigma_base=0.8, **hook_kwargs),
     
     # uniform erosion and dilation sweeps
-    erode_sweep(its = [1, 2, 3, 4, 5, 6], k=3),
-    dilate_sweep(its = [1, 2, 3, 4, 5, 6], k=3),
+    erode_sweep(its = [1, 2, 3, 4, 5, 6], k=3, **hook_kwargs),
+    dilate_sweep(its = [1, 2, 3, 4, 5, 6], k=3, **hook_kwargs),
 
     # brightness adjustments with gamma and not global scaling
     # roughly equidistant increments in log space
     # brightening
-    gamma_sweep(gamma_limit_values=[y * 100 for y in list(np.geomspace(1.0, 3.0, 6))]),
+    gamma_sweep(gamma_limit_values=[y * 100 for y in list(np.geomspace(1.0, 3.0, 6))], **hook_kwargs),
     # darkening
-    gamma_sweep(gamma_limit_values=[y * 100 for y in list(np.geomspace(0.3, 1.0, 6))]),    
+    gamma_sweep(gamma_limit_values=[y * 100 for y in list(np.geomspace(0.3, 1.0, 6))], **hook_kwargs),
 ]
 
 # Set-off the sweeps
