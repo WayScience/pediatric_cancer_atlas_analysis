@@ -249,9 +249,15 @@ class LoadDataIndex:
                 recs.append({
                     "__channel": stem,
                     "__abs_path": meta.get(abs_col),
-                    "__meta_row": meta,  # keep full row; we’ll pick fields later
+                    "__meta_row": meta,  # keep full row; we'll pick fields later
                 })
-        self.long_df = pd.DataFrame(recs).dropna(subset=["__abs_path"])
+        
+        # empy df edge case handling
+        if not recs:
+            self.long_df = pd.DataFrame(columns=[
+                "__channel", "__abs_path", "__meta_row"])
+        else:
+            self.long_df = pd.DataFrame(recs).dropna(subset=["__abs_path"])
 
         # Build the main lookup: absolute path (normalized) -> metadata row (dict)
         self.path_to_meta: Dict[str, Mapping[str, Any]] = {}
