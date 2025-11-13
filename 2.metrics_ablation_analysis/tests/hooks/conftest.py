@@ -1,7 +1,5 @@
 """
-conftest.py
-
-Pytest fixtures for normalization tests.
+Pytest fixtures for normalization, backend and generic hook testing.
 """
 
 from pathlib import Path
@@ -15,9 +13,8 @@ from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.hooks.albumentations import AlbumentationsBackend
 
 
-"""
-normalization testing fixtures
-"""
+# ===== Normalization Fixtures =====
+
 @pytest.fixture
 def normalizer():
     """BitDepthNormalizer instance with auto-inferred bit depth."""
@@ -95,10 +92,7 @@ def bool_image():
     """Boolean test image."""
     return np.array([[True, False, True], [False, True, False]], dtype=np.bool_)
 
-"""
-albumentation backend testing fixtures
-"""
-
+# ===== Backend Fixtures =====
 
 @pytest.fixture
 def synthetic_image():
@@ -136,9 +130,9 @@ def backend_with_noise():
     return AlbumentationsBackend(transform=transform)
 
 
-"""
-generic hook testing fixtures
-"""
+# ===== Hook Testing Fixtures =====
+
+
 @pytest.fixture
 def temp_uint16_image(tmp_path):
     """

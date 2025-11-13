@@ -1,6 +1,4 @@
 """
-conftest.py
-
 Shared pytest fixtures for ablation runner tests.
 """
 
