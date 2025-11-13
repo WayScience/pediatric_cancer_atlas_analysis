@@ -241,23 +241,39 @@ class LoadDataIndex:
             ).str.replace("\\", "/", regex=False)
 
         # Flatten to a long table: one row per (image, channel)
-        recs = []
-        for _, row in self.df.iterrows():
-            meta = row.to_dict()
-            for stem in self.channel_stems:
-                abs_col = f"AbsPath_{stem}"
-                recs.append({
-                    "__channel": stem,
-                    "__abs_path": meta.get(abs_col),
-                    "__meta_row": meta,  # keep full row; we'll pick fields later
-                })
-        
-        # empy df edge case handling
-        if not recs:
+        abs_path_cols = [f"AbsPath_{stem}" for stem in self.channel_stems]
+        if not abs_path_cols:
+            # Empty case: no channels detected
             self.long_df = pd.DataFrame(columns=[
                 "__channel", "__abs_path", "__meta_row"])
         else:
-            self.long_df = pd.DataFrame(recs).dropna(subset=["__abs_path"])
+            # Melt absolute path columns while keeping all other columns as id_vars
+            id_vars = [c for c in self.df.columns if c not in abs_path_cols]
+            self.long_df = self.df.melt(
+                id_vars=id_vars,
+                value_vars=abs_path_cols,
+                var_name="__channel_col",
+                value_name="__abs_path"
+            )
+            
+            # Extract channel stem from the column name (AbsPath_DNA -> DNA)
+            self.long_df["__channel"] = self.long_df["__channel_col"].str.replace(
+                "AbsPath_", "", regex=False
+            )
+            self.long_df = self.long_df.drop(columns=["__channel_col"])
+            
+            # Reconstruct __meta_row as dict for each row
+            # Drop AbsPath columns since they're in __abs_path; keep other metadata
+            meta_cols = [c for c in id_vars if not c.startswith("AbsPath_")]
+            self.long_df["__meta_row"] = self.long_df[meta_cols].apply(
+                lambda row: row.to_dict(), axis=1
+            )
+            
+            # Keep only the columns we need
+            self.long_df = self.long_df[["__channel", "__abs_path", "__meta_row"]]
+            
+            # Remove rows with null paths
+            self.long_df = self.long_df.dropna(subset=["__abs_path"])
 
         # Build the main lookup: absolute path (normalized) -> metadata row (dict)
         self.path_to_meta: Dict[str, Mapping[str, Any]] = {}
