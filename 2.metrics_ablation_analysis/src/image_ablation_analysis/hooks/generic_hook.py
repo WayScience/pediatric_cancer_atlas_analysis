@@ -123,7 +123,7 @@ class GenericTransformHook:
         self._param_hash = _stable_hash_from_params(tparams)
         self.config_id = f"{self.backend.name}:{self._tname}:{self._param_hash}"
 
-    def __call__(self, src_path: Path, bit_depth: Optional[int] = None) -> Iterable[AugVariant]:
+    def __call__(self, src_path: Path) -> Iterable[AugVariant]:
         """
         Apply the transformation to the image at src_path. 
         Generates per image seed to ensure reproducibility while allowing
@@ -151,7 +151,7 @@ class GenericTransformHook:
 
         # normalize via configured normalizer
         img, norm_info = self.normalizer.normalize(
-            raw, bit_depth=bit_depth, path=src_path
+            raw, path=src_path
         )
 
         # apply per-channel or full-image transform

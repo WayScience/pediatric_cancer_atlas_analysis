@@ -14,8 +14,26 @@ from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 
 @pytest.fixture
 def normalizer():
-    """BitDepthNormalizer instance."""
+    """BitDepthNormalizer instance with auto-inferred bit depth."""
     return BitDepthNormalizer()
+
+
+@pytest.fixture
+def normalizer_8bit():
+    """BitDepthNormalizer instance with explicit 8-bit depth."""
+    return BitDepthNormalizer(bit_depth=8)
+
+
+@pytest.fixture
+def normalizer_12bit():
+    """BitDepthNormalizer instance with explicit 12-bit depth."""
+    return BitDepthNormalizer(bit_depth=12)
+
+
+@pytest.fixture
+def normalizer_16bit():
+    """BitDepthNormalizer instance with explicit 16-bit depth."""
+    return BitDepthNormalizer(bit_depth=16)
 
 
 @pytest.fixture

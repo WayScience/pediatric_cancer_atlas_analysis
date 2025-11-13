@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 import numpy as np
 
+from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
+
 
 # Tests for unsigned integer dtypes
 class TestUnsignedIntegerNormalization:
@@ -23,9 +25,9 @@ class TestUnsignedIntegerNormalization:
         assert norm.min() >= 0.0
         assert norm.max() <= 1.0
 
-    def test_uint8_explicit_bitdepth(self, normalizer, uint8_image, dummy_path):
+    def test_uint8_explicit_bitdepth(self, normalizer_8bit, uint8_image, dummy_path):
         """Test uint8 normalization with explicit 8-bit depth."""
-        norm, info = normalizer.normalize(uint8_image, bit_depth=8, path=dummy_path)
+        norm, info = normalizer_8bit.normalize(uint8_image, path=dummy_path)
         
         assert norm.dtype == np.float32
         assert info["bit_depth"] == 8
@@ -47,9 +49,9 @@ class TestUnsignedIntegerNormalization:
         assert norm.min() >= 0.0
         assert norm.max() <= 1.0
 
-    def test_uint16_12bit_explicit(self, normalizer, uint16_image_12bit, dummy_path):
+    def test_uint16_12bit_explicit(self, normalizer_12bit, uint16_image_12bit, dummy_path):
         """Test uint16 array with 12-bit data (explicit bit_depth)."""
-        norm, info = normalizer.normalize(uint16_image_12bit, bit_depth=12, path=dummy_path)
+        norm, info = normalizer_12bit.normalize(uint16_image_12bit, path=dummy_path)
         
         assert norm.dtype == np.float32
         assert info["bit_depth"] == 12
@@ -59,9 +61,9 @@ class TestUnsignedIntegerNormalization:
         assert np.allclose(norm, uint16_image_12bit / 4095.0)
         assert norm.max() <= 1.0
 
-    def test_uint16_8bit_explicit(self, normalizer, uint16_image_8bit, dummy_path):
+    def test_uint16_8bit_explicit(self, normalizer_8bit, uint16_image_8bit, dummy_path):
         """Test uint16 array with 8-bit data (explicit bit_depth)."""
-        norm, info = normalizer.normalize(uint16_image_8bit, bit_depth=8, path=dummy_path)
+        norm, info = normalizer_8bit.normalize(uint16_image_8bit, path=dummy_path)
         
         assert norm.dtype == np.float32
         assert info["bit_depth"] == 8
@@ -99,9 +101,10 @@ class TestFloatNormalization:
         # Should be converted to float32
         assert np.allclose(norm, float16_normalized.astype(np.float32))
 
-    def test_float32_unnormalized_with_bitdepth(self, normalizer, float32_unnormalized, dummy_path):
+    def test_float32_unnormalized_with_bitdepth(self, float32_unnormalized, dummy_path):
         """Test float32 outside [0,1] with explicit bit_depth."""
-        norm, info = normalizer.normalize(float32_unnormalized, bit_depth=8, path=dummy_path)
+        normalizer_8bit = BitDepthNormalizer(bit_depth=8)
+        norm, info = normalizer_8bit.normalize(float32_unnormalized, path=dummy_path)
         
         assert norm.dtype == np.float32
         assert info["strategy"] == "bitdepth_float_as_int"
@@ -151,15 +154,17 @@ class TestEdgeCases:
         assert norm.dtype == np.float32
         assert np.allclose(norm, 1.0)
 
-    def test_invalid_bitdepth_zero(self, normalizer, uint8_image, dummy_path):
+    def test_invalid_bitdepth_zero(self, uint8_image, dummy_path):
         """Test that bit_depth=0 raises ValueError."""
         with pytest.raises(ValueError, match="Invalid bit_depth"):
-            normalizer.normalize(uint8_image, bit_depth=0, path=dummy_path)
+            normalizer_invalid = BitDepthNormalizer(bit_depth=0)
+            normalizer_invalid.normalize(uint8_image, path=dummy_path)
 
-    def test_invalid_bitdepth_negative(self, normalizer, uint8_image, dummy_path):
+    def test_invalid_bitdepth_negative(self, uint8_image, dummy_path):
         """Test that negative bit_depth raises ValueError."""
         with pytest.raises(ValueError, match="Invalid bit_depth"):
-            normalizer.normalize(uint8_image, bit_depth=-1, path=dummy_path)
+            normalizer_invalid = BitDepthNormalizer(bit_depth=-1)
+            normalizer_invalid.normalize(uint8_image, path=dummy_path)
 
     def test_unsupported_dtype_signed_int(self, normalizer, dummy_path):
         """Test that signed integer dtype raises TypeError."""
@@ -195,20 +200,22 @@ class TestNormalizationInfo:
 class TestBitDepthScenarios:
     """Test various bit depth configuration scenarios."""
 
-    def test_bitdepth_greater_than_dtype(self, normalizer, uint8_image, dummy_path):
+    def test_bitdepth_greater_than_dtype(self, uint8_image, dummy_path):
         """Test warning when bit_depth > dtype bits."""
         # Should work but produce a warning
+        normalizer_16bit = BitDepthNormalizer(bit_depth=16)
         with pytest.warns(UserWarning, match="bit_depth=16 > dtype bits=8"):
-            norm, info = normalizer.normalize(uint8_image, bit_depth=16, path=dummy_path)
+            norm, info = normalizer_16bit.normalize(uint8_image, path=dummy_path)
         
         # Should still normalize using the provided bit_depth
         assert info["bit_depth"] == 16
         assert info["scale"] == 65535.0
 
-    def test_bitdepth_less_than_dtype(self, normalizer, uint16_image_16bit, dummy_path):
+    def test_bitdepth_less_than_dtype(self, uint16_image_16bit, dummy_path):
         """Test warning when bit_depth < dtype bits (12-bit in 16-bit)."""
+        normalizer_12bit = BitDepthNormalizer(bit_depth=12)
         with pytest.warns(UserWarning, match="bit_depth=12 < dtype bits=16"):
-            norm, info = normalizer.normalize(uint16_image_16bit, bit_depth=12, path=dummy_path)
+            norm, info = normalizer_12bit.normalize(uint16_image_16bit, path=dummy_path)
         
         # Should normalize using 12-bit scale
         assert info["bit_depth"] == 12
