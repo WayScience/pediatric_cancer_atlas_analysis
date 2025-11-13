@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 import numpy as np
 import albumentations as A
+import tifffile as tiff
 
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.hooks.albumentations import AlbumentationsBackend
@@ -133,3 +134,23 @@ def backend_with_noise():
         p=1.0  # always apply
     )
     return AlbumentationsBackend(transform=transform)
+
+
+"""
+generic hook testing fixtures
+"""
+@pytest.fixture
+def temp_uint16_image(tmp_path):
+    """
+    Create a synthetic uint16 16-bit image and save it as a TIFF file.
+    Returns the path to the temporary TIFF file.
+    """
+    # Create a 16-bit image with values spanning the full range
+    np.random.seed(42)
+    img = np.random.randint(0, 65536, size=(2, 64, 64), dtype=np.uint16)
+    
+    # Save to temporary path
+    temp_file = tmp_path / "test_image_uint16.tiff"
+    tiff.imwrite(str(temp_file), img)
+    
+    return temp_file
