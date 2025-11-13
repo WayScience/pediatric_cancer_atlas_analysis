@@ -55,11 +55,30 @@ class ParquetIndex:
             pa.field("original_rel_path", pa.string()),
             pa.field("aug_abs_path", pa.string()),
             pa.field("aug_rel_path", pa.string()),
-            pa.field("config_id", pa.string()), 
+            pa.field("variant", pa.string()),
+            pa.field("config_id", pa.string()),
             pa.field("params_json", pa.string()),
         ]
         return pa.schema(fields)
     
+    def _validate_required_columns(self, schema: pa.Schema) -> None:
+        """
+        Validate that a schema contains all required columns from _schema().
+        
+        :param schema: PyArrow schema to validate
+        :raises ValueError: If required columns are missing
+        """
+        required_cols = {f.name for f in self._schema()}
+        actual_cols = set(schema.names)
+        missing = required_cols - actual_cols
+        
+        if missing:
+            raise ValueError(
+                f"Schema missing required columns: {sorted(missing)}. "
+                f"Required: {sorted(required_cols)}, "
+                f"Found: {sorted(actual_cols)}"
+            )
+
     def _open_dataset_safe(self) -> Optional[ds.Dataset]:
         """
         Open the Parquet dataset. 
@@ -125,12 +144,12 @@ class ParquetIndex:
 
     def materialize_seen_pairs(self) -> set[tuple[str, str]]:
         """
-        Load existing (original_abs_path, variant) pairs, returning an empty set
+        Load existing (original_abs_path, config_id) pairs, returning an empty set
         if the dataset is empty or columns aren't present yet. 
         Intended to be used by the runner to obtain a record of what has already
         been processed and skip on a single-image basis.
 
-        :return: set of (original_abs_path, variant) pairs already in the index.
+        :return: set of (original_abs_path, config_id) pairs already in the index.
         """
         dset = self._open_dataset_safe()
         if dset is None:
