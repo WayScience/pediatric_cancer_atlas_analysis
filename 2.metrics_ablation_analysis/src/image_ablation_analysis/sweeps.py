@@ -20,6 +20,7 @@ def grid_distort_sweep(
     distort_limit_values=[0.1, 0.2, 0.4, 0.6, 0.8, 1.0],
     num_steps=5,
     variant_prefix="abl_distort",
+    **kwargs
 ):
     """
     Grid distortion sweep
@@ -27,6 +28,7 @@ def grid_distort_sweep(
     :param distort_limit_values: List of distort_limit values to sweep over.
     :param num_steps: Number of steps for grid distortion.
     :param variant_prefix: Prefix for variant naming.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each distortion setting.
     """
     def _hook(src_path: Path):
@@ -40,7 +42,8 @@ def grid_distort_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"{variant_prefix}=({distort_limit},{num_steps})"
+                variant_name=f"{variant_prefix}=({distort_limit},{num_steps})",
+                **kwargs
             )
 
             for av in g(src_path):
@@ -52,12 +55,14 @@ def grid_distort_sweep(
 def gauss_noise_sweep(
     std_range_values=[0.1, 0.2, 0.4, 0.6, 0.8, 1.0 ],
     variant_prefix="abl_gaussnoise",
+    **kwargs
 ):
     """
     Gaussian noise sweep
 
     :param std_range_values: List of standard deviation values to sweep over.
     :param variant_prefix: Prefix for variant naming.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each noise setting.
     """
     def _hook(src_path: Path):
@@ -70,7 +75,8 @@ def gauss_noise_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"{variant_prefix}={std_range}"
+                variant_name=f"{variant_prefix}={std_range}",
+                **kwargs
             )
 
             for av in g(src_path):
@@ -83,6 +89,7 @@ def blur_sweep(
     its = [10, 20, 30, 40, 50, 60],
     sigma_base = 0.8,
     variant_prefix="abl_blur",
+    **kwargs
 ):
     """
     Gaussian blur sweep
@@ -91,6 +98,7 @@ def blur_sweep(
     :param its: List of iteration counts to sweep over.
     :param sigma_base: Base sigma value to scale with sqrt(iterations).
     :param variant_prefix: Prefix for variant naming.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each blur setting.
     """
     def _hook(src_path: Path):
@@ -105,7 +113,9 @@ def blur_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"{variant_prefix}=({it},{sigma_base})"
+                variant_name=f"{variant_prefix}=({it},{sigma_base})",
+                **kwargs
+                
             )
 
             for av in g(src_path):
@@ -117,6 +127,7 @@ def blur_sweep(
 def erode_sweep(
     its = [1, 2, 3, 4, 5, 6],
     k=3,
+    **kwargs
 ):
     """
     Erosion sweep
@@ -124,6 +135,7 @@ def erode_sweep(
 
     :param its: List of iteration counts to sweep over.
     :param k: Kernel size for erosion.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each erosion setting.
     """
     def _hook(src_path: Path):
@@ -138,7 +150,8 @@ def erode_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"abl_erode=({it},{k})"
+                variant_name=f"abl_erode=({it},{k})",
+                **kwargs
             )
 
             for av in g(src_path):
@@ -150,6 +163,7 @@ def erode_sweep(
 def dilate_sweep(
     its = [1, 2, 3, 4, 5, 6],
     k=3,
+    **kwargs
 ):
     """
     Dilation sweep
@@ -157,6 +171,7 @@ def dilate_sweep(
 
     :param its: List of iteration counts to sweep over.
     :param k: Kernel size for dilation.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each dilation setting.
     """
     def _hook(src_path: Path):
@@ -171,7 +186,8 @@ def dilate_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"abl_dilate=({it},{k})"
+                variant_name=f"abl_dilate=({it},{k})",
+                **kwargs
             )
 
             for av in g(src_path):
@@ -183,12 +199,14 @@ def dilate_sweep(
 def gamma_sweep(
     # larger gamma for brightening
     # to darken, e.g. use np.geomspace(0.3, 1.0, 6)
-    gamma_limit_values=[y * 100 for y in list(np.geomspace(1.0, 3.0, 6))]
+    gamma_limit_values=[y * 100 for y in list(np.geomspace(1.0, 3.0, 6))],
+    **kwargs
 ):
     """
     Gamma correction sweep
 
     :param gamma_limit_values: List of gamma values to sweep over.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each gamma setting.
     """
     def _hook(src_path: Path):
@@ -204,7 +222,8 @@ def gamma_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"abl_gamma={gamma_limit}"
+                variant_name=f"abl_gamma={gamma_limit}",
+                **kwargs
             )
 
             for av in g(src_path):
@@ -219,6 +238,7 @@ def shift_sweep(
     rotate_limit=(0, 0),
     border_mode=cv2.BORDER_WRAP,
     variant_prefix="abl_shift",
+    **kwargs
 ):
     """
     Shift sweep
@@ -228,6 +248,7 @@ def shift_sweep(
     :param rotate_limit: Rotate limit tuple for ShiftScaleRotate.
     :param border_mode: Border mode for ShiftScaleRotate.
     :param variant_prefix: Prefix for variant naming.
+    :param kwargs: Additional keyword arguments for the hook.
     :return: Hook function that yields AugVariant for each shift setting.
     """
     def _hook(src_path: Path):
@@ -243,7 +264,8 @@ def shift_sweep(
             )
             g = make_albumentations_hook(
                 transform=transform,
-                variant_name=f"{variant_prefix}={shift_limit}"
+                variant_name=f"{variant_prefix}={shift_limit}",
+                **kwargs
             )
 
             for av in g(src_path):
