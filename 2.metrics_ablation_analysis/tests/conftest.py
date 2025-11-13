@@ -242,3 +242,110 @@ def missing_channel_loaddata_csv(temp_images_root, multi_channel_images):
     df.to_csv(csv_path, index=False)
     
     return csv_path
+
+
+# ===== ParquetIndex Fixtures =====
+
+@pytest.fixture
+def temp_parquet_index_dir(tmp_path):
+    """Create a temporary directory for ParquetIndex."""
+    index_dir = tmp_path / "parquet_index"
+    return index_dir
+
+
+@pytest.fixture
+def parquet_index_dummy_df():
+    """
+    Create a minimal dummy DataFrame matching ParquetIndex._schema().
+    Includes the required columns: created_at, run_id, original_abs_path,
+    original_rel_path, aug_abs_path, aug_rel_path, variant, config_id, params_json.
+    """
+    from datetime import datetime, timezone
+    
+    now = datetime.now(timezone.utc)
+    
+    df = pd.DataFrame({
+        "created_at": [now, now],
+        "run_id": ["run_001", "run_001"],
+        "original_abs_path": ["/data/image1.tiff", "/data/image2.tiff"],
+        "original_rel_path": ["image1.tiff", "image2.tiff"],
+        "aug_abs_path": ["/data/ablated/image1_v1.tiff", "/data/ablated/image2_v1.tiff"],
+        "aug_rel_path": ["ablated/image1_v1.tiff", "ablated/image2_v1.tiff"],
+        "variant": ["blur", "blur"],
+        "config_id": ["cfg_001", "cfg_002"],
+        "params_json": ['{"sigma": 1.0}', '{"sigma": 2.0}'],
+    })
+    return df
+
+
+@pytest.fixture
+def parquet_index_dummy_df_with_metadata():
+    """
+    Create a DataFrame matching ParquetIndex._schema() with additional metadata columns.
+    Useful for testing that the index can handle extra columns beyond the required schema.
+    """
+    from datetime import datetime, timezone
+    
+    now = datetime.now(timezone.utc)
+    
+    df = pd.DataFrame({
+        "created_at": [now, now, now],
+        "run_id": ["run_001", "run_001", "run_002"],
+        "original_abs_path": ["/data/image1.tiff", "/data/image2.tiff", "/data/image3.tiff"],
+        "original_rel_path": ["image1.tiff", "image2.tiff", "image3.tiff"],
+        "aug_abs_path": ["/data/ablated/image1_v1.tiff", "/data/ablated/image2_v1.tiff", "/data/ablated/image3_v2.tiff"],
+        "aug_rel_path": ["ablated/image1_v1.tiff", "ablated/image2_v1.tiff", "ablated/image3_v2.tiff"],
+        "variant": ["blur", "rotate", "blur"],
+        "config_id": ["cfg_001", "cfg_001", "cfg_002"],
+        "params_json": ['{"sigma": 1.0}', '{"angle": 45}', '{"sigma": 1.5}'],
+        "metadata_plate": ["plate_A", "plate_A", "plate_B"],
+        "metadata_well": ["A01", "A02", "B01"],
+    })
+    return df
+
+
+@pytest.fixture
+def parquet_index_incomplete_schema_df():
+    """
+    Create a DataFrame that is missing required columns from ParquetIndex._schema().
+    Used to test error handling when reading from a partially written index.
+    """
+    from datetime import datetime, timezone
+    
+    now = datetime.now(timezone.utc)
+    
+    # Missing 'params_json' and 'variant' columns
+    df = pd.DataFrame({
+        "created_at": [now],
+        "run_id": ["run_001"],
+        "original_abs_path": ["/data/image1.tiff"],
+        "original_rel_path": ["image1.tiff"],
+        "aug_abs_path": ["/data/ablated/image1_v1.tiff"],
+        "aug_rel_path": ["ablated/image1_v1.tiff"],
+        "config_id": ["cfg_001"],
+    })
+    return df
+
+
+@pytest.fixture
+def parquet_index_missing_path_config_df():
+    """
+    Create a DataFrame missing both original_abs_path and config_id columns.
+    Used to test materialize_seen_pairs and list_done_paths_for error handling.
+    """
+    from datetime import datetime, timezone
+    
+    now = datetime.now(timezone.utc)
+    
+    # Missing original_abs_path and config_id columns
+    df = pd.DataFrame({
+        "created_at": [now],
+        "run_id": ["run_001"],
+        "original_rel_path": ["image1.tiff"],
+        "aug_abs_path": ["/data/ablated/image1_v1.tiff"],
+        "aug_rel_path": ["ablated/image1_v1.tiff"],
+        "variant": ["blur"],
+        "params_json": ['{"sigma": 1.0}'],
+    })
+    return df
+
