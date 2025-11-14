@@ -241,7 +241,7 @@ class AblationRunner:
 
     def _default_tiff_writer(self, out_path: Path, image: Any) -> None:
         # Default tifffile writer
-        tiff.imwrite(str(out_path), image, bigtiff=True)
+        tiff.imwrite(str(out_path), image, bigtiff=True, photometric='minisblack')
 
     def _select_meta(self, meta_row: Mapping[str, Any]) -> Dict[str, Any]:
         # Select metadata columns to keep from loaddata for index.
