@@ -21,6 +21,8 @@ dependencies = [
     "pyarrow",
     "tifffile",
     "pandas",
+    "kornia",
+    "torchmetrics",
 ]
 [project.optional-dependencies]
 dev = [
