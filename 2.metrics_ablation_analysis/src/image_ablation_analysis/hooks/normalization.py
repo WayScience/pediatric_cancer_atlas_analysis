@@ -9,8 +9,27 @@ manageable inverting of normalization post-augmentation if needed.
 from pathlib import Path
 from typing import Tuple, Dict, Any, Optional
 import warnings
+from contextlib import contextmanager
 
 import numpy as np
+
+# Custom warning, formatting and context manager for cleaner warning output
+class BitDepthWarning(UserWarning):
+    pass
+
+
+def minimal_formatwarning(message, category, filename, lineno, line=None):
+    return f"{category.__name__}: {message}\n"
+
+
+@contextmanager
+def minimal_warnings():
+    old = warnings.formatwarning
+    warnings.formatwarning = minimal_formatwarning
+    try:
+        yield
+    finally:
+        warnings.formatwarning = old
 
 
 class BitDepthNormalizer:
@@ -73,11 +92,6 @@ class BitDepthNormalizer:
                 return norm, norm_info
 
             if self.bit_depth is None:
-                warnings.warn(
-                    f"[{path}] Float image not in [0,1], and no bit_depth provided. "
-                    f"Refusing to guess normalization. Provide bit_depth explicitly.",
-                    UserWarning,
-                )
                 raise ValueError("Float input without clear normalization semantics.")
 
             # If user insists on treating it as bit-depth based:
@@ -99,13 +113,16 @@ class BitDepthNormalizer:
         elif np.issubdtype(orig_dtype, np.unsignedinteger):
             inferred = orig_dtype.itemsize * 8
 
+            # all warnings raised are with stacklevel=0 because the stack
+            # trace is not helpful at all and only drowns the actual message.
             if self.bit_depth is None:
                 bit_depth = inferred
-                warnings.warn(
-                    f"[{path}] Bit depth not specified, auto-inferred as {bit_depth} "
-                    f"from dtype {orig_dtype}. This may be incorrect if image "
-                    f"doesn't use full dynamic range (e.g. 12-bit in 16-bit).",
-                    UserWarning,
+                with minimal_warnings():
+                    warnings.warn(
+                        f"[{path}] Bit depth not specified, auto-inferred as {bit_depth} "
+                        f"from dtype {orig_dtype}. This may be incorrect if image "
+                        f"doesn't use full dynamic range (e.g. 12-bit in 16-bit).",
+                        BitDepthWarning,
                 )
             else:
                 bit_depth = self.bit_depth
@@ -113,18 +130,20 @@ class BitDepthNormalizer:
                     raise ValueError(f"Invalid bit_depth: {bit_depth}")
                 # Allow bit_depth < inferred (e.g. 12-bit in 16-bit) but warn.
                 if bit_depth < inferred:
-                    warnings.warn(
-                        f"[{path}] bit_depth={bit_depth} < dtype bits={inferred}. "
-                        f"Assuming high bits unused (e.g. 12-bit packed in 16-bit).",
-                        UserWarning,
-                    )
+                    with minimal_warnings():
+                        warnings.warn(
+                            f"[{path}] bit_depth={bit_depth} < dtype bits={inferred}. "
+                            f"Assuming high bits unused (e.g. 12-bit packed in 16-bit).",
+                            BitDepthWarning,
+                        )
                 # If user gives > inferred, that's almost certainly wrong.
                 if bit_depth > inferred:
-                    warnings.warn(
-                        f"[{path}] bit_depth={bit_depth} > dtype bits={inferred}. "
-                        f"This is inconsistent; using {bit_depth} anyway.",
-                        UserWarning,
-                    )
+                    with minimal_warnings():
+                        warnings.warn(
+                            f"[{path}] bit_depth={bit_depth} > dtype bits={inferred}. "
+                            f"This is inconsistent; using {bit_depth} anyway.",
+                            BitDepthWarning,
+                        )
 
             scale = float(2**bit_depth - 1)
             norm = img.astype(np.float32) / scale
