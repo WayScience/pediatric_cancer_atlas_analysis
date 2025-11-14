@@ -1,0 +1,42 @@
+[project]
+name = "image-ablation-analysis"
+version = "0.1.0"
+description = "Metrics analysis using ablated medical images"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    "imagecodecs",
+    "tqdm",
+    "torch",
+    "seaborn",
+    "matplotlib",
+    "jupyter",
+    "pre-commit",
+    "numpy",
+    "scikit-learn",
+    "opencv-python",
+    "ipython",
+    "notebook",
+    "albumentations",
+    "pyarrow",
+    "tifffile",
+    "pandas",
+]
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
