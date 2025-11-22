@@ -179,6 +179,15 @@ class AblationRunner:
                     "params_json": json.dumps(av.params, separators=(",", ":")),
                 }
 
+                # include explicitly tracked variant parameters if provided
+                for sweep_key in ("param_fixed", "param_sweeped", "param_sweep_value"):
+                    if sweep_key in av.params:
+                        val = av.params[sweep_key]
+                        if isinstance(val, (list, dict, tuple)):
+                            row[sweep_key] = json.dumps(val, separators=(",", ":"))
+                        else:
+                            row[sweep_key] = val
+
                 # attach selected metadata fields
                 for k, v in self._select_meta(meta).items():
                     # keep strings scalars; convert lists/tuples/dicts to JSON

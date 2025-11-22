@@ -47,6 +47,9 @@ def grid_distort_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", ["num_steps"])
+                av.params.setdefault("param_swept", ["distort_limit"])
+                av.params.setdefault("param_values", [distort_limit])
                 yield av
 
     return _hook
@@ -80,6 +83,9 @@ def gauss_noise_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", [])
+                av.params.setdefault("param_swept", ["std_range"])
+                av.params.setdefault("param_values", [std_range])
                 yield av
 
     return _hook
@@ -119,6 +125,9 @@ def blur_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", [])
+                av.params.setdefault("param_swept", ["sigma_limit"])
+                av.params.setdefault("param_values", [sigma_limit])
                 yield av
 
     return _hook
@@ -155,6 +164,9 @@ def erode_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", ["k"])
+                av.params.setdefault("param_swept", ["iterations"])
+                av.params.setdefault("param_values", [it])
                 yield av
 
     return _hook
@@ -191,6 +203,9 @@ def dilate_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", ["k"])
+                av.params.setdefault("param_swept", ["iterations"])
+                av.params.setdefault("param_values", [it])
                 yield av
 
     return _hook
@@ -227,6 +242,9 @@ def gamma_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", [])
+                av.params.setdefault("param_swept", ["gamma_limit"])
+                av.params.setdefault("param_values", [gamma_limit])
                 yield av
 
     return _hook
@@ -269,6 +287,9 @@ def shift_sweep(
             )
 
             for av in g(src_path):
+                av.params.setdefault("param_fixed", ["scale_limit", "rotate_limit", "border_mode"])
+                av.params.setdefault("param_swept", ["shift_limit"])
+                av.params.setdefault("param_values", [shift_limit])
                 yield av
 
     return _hook
