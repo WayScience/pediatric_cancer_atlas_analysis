@@ -1,3 +1,12 @@
+# mlflow output
+**/mlruns/*
+
+# all pngs under plots
+**/plots/*.png
+
+# all csvs under data
+**/intermediate/*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
