@@ -23,7 +23,11 @@ from ..hooks.normalization import BitDepthNormalizer
 
 class EvalRunner:
     """
-    Class to evaluate metrics on image ablation analysis results.
+    Helper class to evaluate metrics on image ablation analysis results.
+    
+    Initializes with a file index or directory containing the index file.
+    Internally creates a dataset from the index to load ablated and original images
+    Provides a run() method to compute specified metrics on the image pairs    
     """
     def __init__(
         self, 
@@ -80,6 +84,12 @@ class EvalRunner:
     ):
         """
         Run evaluation of the specified metrics on the image pairs.
+
+        :param out_dir: Directory to save the metric results as parquet files.
+        :param metrics: Dictionary of metric names to MetricSpec defining the metrics to compute.
+        :param device: Torch device to run the computations on (CPU or CUDA).
+        :param batch_size: Batch size for data loading.
+        :param num_workers: Number of worker threads for data loading.
         """
         
         loader = DataLoader(

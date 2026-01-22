@@ -41,6 +41,10 @@ def validate_orig_abl(original: np.ndarray, ablated: np.ndarray) -> tuple[np.nda
 
 
 class ImagePairDataset(Dataset):
+    """
+    Dataset to load pairs of original and ablated images from a given index DataFrame.
+    Useful for evaluating metrics on image ablation analysis results.
+    """
     def __init__(
         self, 
         index_df: pd.DataFrame, 
@@ -79,7 +83,11 @@ class ImagePairDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, Any]]:
+    def __getitem__(
+        self, 
+        idx: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, Any]]: # type: ignore
+
         row = self.df.iloc[idx]
         
         orig_path = pathlib.Path(row["original_abs_path"]).resolve(strict=True)

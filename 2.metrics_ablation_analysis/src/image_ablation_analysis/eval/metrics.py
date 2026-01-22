@@ -1,7 +1,7 @@
 """
 metrics.py
 
-Evaluate metrics on image ablation analysis results.
+Metric definitions and wrappers for image ablation analysis evaluation.
 """
 
 from typing import Callable, Dict, List
@@ -65,7 +65,7 @@ def metric_factory(
     metrics = {}
 
     for fn in metric_fns:
-        name = fn.__name__
+        name = fn.__name__ if hasattr(fn, '__name__') else str(fn)
         metrics[name] = MetricSpec(fn=fn, preprocess=preprocess)
     
     return metrics
