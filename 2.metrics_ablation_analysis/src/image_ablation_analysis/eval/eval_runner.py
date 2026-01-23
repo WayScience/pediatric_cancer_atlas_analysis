@@ -8,7 +8,7 @@ import pathlib
 from typing import Optional, Dict
 
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import pyarrow as pa
 import pyarrow.parquet as pq
 
