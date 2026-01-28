@@ -54,9 +54,8 @@ class EvalRunner:
                     "and 'variant' columns.")
         
         elif index_dir is not None:
-            
-            if not index_dir.resolve(strict=True).exists():
-                raise FileNotFoundError(f"Index directory {index_dir} does not exist.")
+
+            index_dir = index_dir.resolve(strict=True)
             
             try:
                 pidx = ParquetIndex(index_dir=index_dir)
