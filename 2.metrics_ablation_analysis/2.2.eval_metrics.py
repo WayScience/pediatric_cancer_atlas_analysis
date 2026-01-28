@@ -1,6 +1,18 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# # 2.2. Evaluate image quality assessment metrics on ablated images generated from 2.1 against their raw reference
+# 
+# Metrics included in this notebook
+# - MAE
+# - SSIM
+# - PSNR
+# - LPIPS
+# - DISTS
+# - foreground aware SSIM and PSNR (see `metrics.py` implementation)
+# 
+# 
+
 # In[ ]:
 
 
