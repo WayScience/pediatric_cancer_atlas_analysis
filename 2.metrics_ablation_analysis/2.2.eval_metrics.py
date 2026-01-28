@@ -162,14 +162,29 @@ index_df.head()
 # In[ ]:
 
 
+# normalize 16-bit ablated images to [0, 1] float32
+# this helps the evaluation with metrics that assume inputs are in [0, 1]
+# like PSNR that is configured with data_range=1.0
 normalizer = BitDepthNormalizer(bit_depth=16)
 
-dataset = ImagePairDataset(index_df, normalizer, metadata_cols=[
-    'variant', 'run_id', 'config_id', 
-    'Metadata_Plate', 'cell_line', 'seeding_density',
-    'original_abs_path', 'aug_abs_path',
-    'param_fixed', 'param_swept', 'param_values'
-])
+dataset = ImagePairDataset(
+    # This image pair dataset takes the index dataframe from 2.1.generate_ablation
+    # that tracks every single saved ablated image and its corresponding original image.
+    # and returns pairs of (original, ablated) images for convenient evaluation
+    index_df, 
+    # this makes the dataset class call the normalizer 
+    # before finally yielding the image pair
+    # please see the ImagePairDataset implementation for details
+    normalizer,  
+    metadata_cols=[
+        # append these metadata to output metrics eval for more 
+        # convenient analysis downstream
+        'variant', 'run_id', 'config_id', 
+        'Metadata_Plate', 'cell_line', 'seeding_density',
+        'original_abs_path', 'aug_abs_path',
+        'param_fixed', 'param_swept', 'param_values'
+    ]
+)
 
 loader = DataLoader(
     dataset,
