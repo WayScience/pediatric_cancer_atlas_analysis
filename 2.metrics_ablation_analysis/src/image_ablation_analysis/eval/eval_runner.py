@@ -169,7 +169,8 @@ class EvalRunner:
                     
                     # subset the batches to compute
                     orig_batch_sub = orig_batch[incompleted]
-                    abl_batch_sub  = abl_batch[incompleted]                                 
+                    abl_batch_sub  = abl_batch[incompleted]
+                    B_sub = orig_batch_sub.shape[0]                                 
 
                     x = spec.preprocess(orig_batch_sub)
                     y = spec.preprocess(abl_batch_sub)
@@ -177,11 +178,11 @@ class EvalRunner:
                     
                     if isinstance(val, torch.Tensor):
                         if val.ndim == 0:
-                            raise ValueError(f"Metric {name} returned a scalar value for batch size {B}, expected per-sample values.")
+                            raise ValueError(f"Metric {name} returned a scalar value for batch size {B_sub}, expected per-sample values.")
                         else:
                             metric_values[name] = val.view(-1)
                     else:
-                        metric_values[name] = torch.full((B,), float(val), device=device)
+                        metric_values[name] = torch.full((B_sub,), float(val), device=device)
                 
                 for name, vals in metric_values.items():
                     block[name] = vals.cpu().numpy()
