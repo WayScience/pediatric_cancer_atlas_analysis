@@ -93,6 +93,10 @@ class EvalRunner:
         :param num_workers: Number of worker threads for data loading.
         :param force_overwrite: If True, overwrite existing results in out_dir.
         """
+
+        # Prepare output directory
+        out_dir = out_dir.resolve(strict=False)
+        out_dir.mkdir(parents=True, exist_ok=True)
         
         loader = DataLoader(
             self.dataset,
