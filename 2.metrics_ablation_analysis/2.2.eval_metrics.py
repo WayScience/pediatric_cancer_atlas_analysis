@@ -59,23 +59,28 @@ else:
 # In[ ]:
 
 
+# Prefer the second GPU for this evaluation analysis by PCIE order
+# I had my secondary GPU installed on the second slot, adjust as needed per your setup
+
 if torch.cuda.is_available():
     n_devices = torch.cuda.device_count()
     print(f"Number of available CUDA devices: {n_devices}")
-    device_dict = {}
     for i in range(n_devices):
         device_name = torch.cuda.get_device_name(i)
-        print(f"CUDA Device {i}: {device_name}")
-        device_dict[device_name] = torch.device(f'cuda:{i}')
-else:
-    print("No CUDA devices available.")
-    device_dict = {"cpu": torch.device('cpu')}
+        print(f"CUDA Device {i}: {device_name}")    
 
-try:
-    device = device_dict["NVIDIA GeForce RTX 3090"]
-except Exception:
-    device = device_dict["cpu"]
-print(f"Using device: {device}: {torch.cuda.current_device()}")
+    if n_devices >= 2:
+        # Attempt using the second GPU (index 1) in PCIe order
+        device = torch.device('cuda:1')
+        print(f"Selected device: {torch.cuda.get_device_name(device.index)}")
+    else:
+        # fallback to the first GPU if only one is available
+        device = torch.device('cuda:0') 
+        print(f"Only one CUDA device available. Using device: {torch.cuda.get_device_name(device.index)}")
+else:
+    raise RuntimeError("No CUDA devices available.")
+
+print(f"Using device: {device}")
 
 
 # ## Define metric functions
