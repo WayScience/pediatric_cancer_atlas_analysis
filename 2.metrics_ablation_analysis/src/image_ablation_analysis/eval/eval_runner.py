@@ -169,8 +169,7 @@ class EvalRunner:
                     
                     # subset the batches to compute
                     orig_batch_sub = orig_batch[incompleted]
-                    abl_batch_sub  = abl_batch[incompleted]
-                    B_sub = orig_batch_sub.shape[0]                                    
+                    abl_batch_sub  = abl_batch[incompleted]                                 
 
                     x = spec.preprocess(orig_batch_sub)
                     y = spec.preprocess(abl_batch_sub)
