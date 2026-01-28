@@ -4,25 +4,18 @@
 # In[ ]:
 
 
-import os
 import pathlib
 from typing import Dict
 
-import tifffile as tiff
-from tqdm.auto import tqdm
-import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 import torch
 from torch.utils.data import DataLoader
-from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
+from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
 from image_ablation_analysis.indexing import ParquetIndex
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.eval.metrics import (
     MetricSpec,
-    metric_factory,
     to_rgb_space,
     identity,
     functional_dists,
@@ -33,7 +26,7 @@ from image_ablation_analysis.eval.masked_metrics import (
     ForegroundPSNR,
     ForegroundSSIM,
 )
-from image_ablation_analysis.eval.eval_utils import validate_orig_abl, ImagePairDataset
+from image_ablation_analysis.eval.eval_utils import ImagePairDataset
 from image_ablation_analysis.eval.eval_runner import EvalRunner
 
 
