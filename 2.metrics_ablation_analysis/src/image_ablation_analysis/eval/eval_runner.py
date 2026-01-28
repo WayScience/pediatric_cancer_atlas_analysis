@@ -102,7 +102,6 @@ class EvalRunner:
             pin_memory=torch.cuda.is_available() if device.type == "cuda" else False,
         )
 
-        results = []
         batch_idx = 0
 
         with torch.no_grad():
