@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import os
@@ -39,16 +39,13 @@ from image_ablation_analysis.eval.eval_runner import EvalRunner
 
 # ## Pathing
 
-# In[2]:
+# In[ ]:
 
 
-abl_root = pathlib.Path("/mnt/hdd20tb/alsf_ablated2/")
+abl_root = pathlib.Path("/mnt/hdd20tb/alsf_ablated2/").resolve(strict=True)
 
 out_dir = abl_root / "results" / "metrics"
 out_dir.mkdir(parents=True, exist_ok=True)
-
-if not abl_root.resolve(strict=True).exists():
-    raise FileNotFoundError(f"Ablation root path {abl_root} does not exist.")
 
 abl_images = list(abl_root.rglob("*.tiff"))
 if not abl_images:
@@ -59,7 +56,7 @@ else:
 
 # ## Set cuda device used for accelarating metrics computation
 
-# In[3]:
+# In[ ]:
 
 
 if torch.cuda.is_available():
@@ -83,7 +80,7 @@ print(f"Using device: {device}: {torch.cuda.current_device()}")
 
 # ## Define metric functions
 
-# In[4]:
+# In[ ]:
 
 
 # Due to the inconsistent way certain metrics support/handle aggregation
@@ -146,7 +143,7 @@ METRICS: Dict[str, MetricSpec] = {
 
 # ## Checking the generated ablated images
 
-# In[5]:
+# In[ ]:
 
 
 index = ParquetIndex(index_dir=abl_root / "ablated_index")
@@ -157,7 +154,7 @@ index_df.head()
 # ## Setting up the evaluation dataset from the ablated image index
 # The dataset would return pairs of ablatied image and the non-ablated raw version for convenient metric computation
 
-# In[6]:
+# In[ ]:
 
 
 normalizer = BitDepthNormalizer(bit_depth=16)
