@@ -3,7 +3,6 @@ eval_metrics.py
 
 Evaluate metrics on image ablation analysis results.
 """
-from babel.localedata import exists
 
 import pathlib
 from typing import Optional, Dict
