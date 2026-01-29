@@ -93,6 +93,20 @@ class ImagePairDataset(Dataset):
         self, 
         idx: int
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, Any]]: # type: ignore
+        """
+        Overridden torch Dataset method to get original and ablated image pair along with metadata.
+        Note that the return signature isn't following torch Dataset standard 
+            due to wanting to include metadata dict sidecar, which helps with
+            evaluation bookkeeping.
+
+        :param idx: Index of the image pair to retrieve. Must be in range [0, len(self)-1].
+        :return: Tuple of (original_image_tensor, ablated_image_tensor, metadata_dict)
+            - original_image_tensor: torch.Tensor of shape (C, H, W)
+            - ablated_image_tensor: torch.Tensor of shape (C, H, W)
+            - metadata_dict: Dict[str, Any] containing metadata for the image pair.
+                Essentially has `original_abs_path`, `aug_abs_path`, `variant`, etc. metadata
+                from ablation creation that allows for bookkeeping during evaluation.
+        """
 
         row = self.df.iloc[idx]
         
