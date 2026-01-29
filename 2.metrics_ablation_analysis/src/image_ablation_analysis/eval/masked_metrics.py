@@ -70,7 +70,7 @@ class MaskedMetric(Module, ABC):
 
         if pred.shape[1] != 1 or target.shape[1] != 1:
             raise ValueError(
-                f"{self.__name__} expects single-channel (C=1) tensors.")
+                f"{self.__class__.__name__} expects single-channel (C=1) tensors.")
 
         pred = pred.to(dtype=self._dtype)
         target = target.to(dtype=self._dtype)
