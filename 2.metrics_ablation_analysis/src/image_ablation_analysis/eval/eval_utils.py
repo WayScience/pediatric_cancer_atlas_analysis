@@ -63,6 +63,13 @@ class ImagePairDataset(Dataset):
 
     @staticmethod
     def _serialize_metadata_value(v: Any) -> Any:
+        """
+        Sanitaize metadata value for serialization.
+        Converts numpy/pandas scalar types to native Python types.
+        If conversion is not possible, converts to string.
+        The importerror handling allows this function to be used even if numpy/pandas
+        are not installed.
+        """
         
         if v is None or isinstance(v, (str, int, float, bool)):
             return v
