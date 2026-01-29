@@ -13,7 +13,6 @@ import tifffile as tiff
 import torch
 from torch.utils.data import Dataset
 
-from ..hooks.normalization import BitDepthNormalizer
 
 def validate_orig_abl(original: np.ndarray, ablated: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
