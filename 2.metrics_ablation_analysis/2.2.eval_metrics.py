@@ -13,14 +13,14 @@
 # 
 # 
 
-# In[ ]:
+# In[1]:
 
 
 import pathlib
 from typing import Dict
 
 import torch
-from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
@@ -61,7 +61,7 @@ else:
 
 # ## Set cuda device used for accelarating metrics computation
 
-# In[ ]:
+# In[3]:
 
 
 # Prefer the second GPU for this evaluation analysis by PCIE order
@@ -90,7 +90,7 @@ print(f"Using device: {device}")
 
 # ## Define metric functions
 
-# In[ ]:
+# In[4]:
 
 
 # Due to the inconsistent way certain metrics support/handle aggregation
@@ -153,7 +153,7 @@ METRICS: Dict[str, MetricSpec] = {
 
 # ## Checking the generated ablated images
 
-# In[ ]:
+# In[5]:
 
 
 index = ParquetIndex(index_dir=abl_root / "ablated_index")
@@ -191,19 +191,10 @@ dataset = ImagePairDataset(
     ]
 )
 
-loader = DataLoader(
-    dataset,
-    batch_size=8, 
-    shuffle=False,
-    num_workers=8,  # tune for I/O
-    pin_memory=torch.cuda.is_available(),
-
-)
-
 
 # ## Invoke metrics evaluation runner
 
-# In[ ]:
+# In[7]:
 
 
 runner = EvalRunner(
