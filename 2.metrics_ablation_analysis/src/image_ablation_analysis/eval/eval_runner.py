@@ -82,7 +82,7 @@ class EvalRunner:
         batch_size: int = 1,
         num_workers: int = 1,
         force_overwrite: bool = False,
-    ):
+    ) -> None:
         """
         Run evaluation of the specified metrics on the image pairs.
 
