@@ -43,6 +43,22 @@ class AugVariant:
     orig_dtype: Optional[str] = None
     norm_info: Optional[Dict[str, Any]] = None
 
+    def set_params(
+        self,
+        fixed: List[str],
+        swept: List[str],
+        values: List[float]
+    ) -> None:
+        """
+        Set sweep parameters in AugVariant.
+
+        :param fixed: List of fixed parameter names.
+        :param swept: List of swept parameter names.
+        :param values: List of swept parameter values.
+        """
+        self.params.setdefault("param_fixed", fixed)
+        self.params.setdefault("param_swept", swept)
+        self.params.setdefault("param_values", values)
 
 class AblationRunner:
     """
@@ -180,7 +196,7 @@ class AblationRunner:
                 }
 
                 # include explicitly tracked variant parameters if provided
-                for sweep_key in ("param_fixed", "param_sweeped", "param_sweep_value"):
+                for sweep_key in ("param_fixed", "param_swept", "param_values"):
                     if sweep_key in av.params:
                         val = av.params[sweep_key]
                         if isinstance(val, (list, dict, tuple)):
