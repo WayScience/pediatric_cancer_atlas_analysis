@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-def validate_orig_abl(original: np.ndarray, ablated: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def validate_orig_abl(original: np.ndarray, ablated: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     Validate original and ablated images to have the same shape and channel dimensions.
     """
