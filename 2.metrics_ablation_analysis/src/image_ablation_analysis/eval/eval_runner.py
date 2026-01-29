@@ -153,7 +153,13 @@ class EvalRunner:
                 B = orig_batch.shape[0]
                 
                 metric_values = {}
-                block = metadata if metadata is not None else {}
+
+                # creating the new block of evaluation progress index
+                # from the sidecar metadata from the loader
+                if metadata is None:
+                    print(f"Warning: metadata is None in the dataloader batch {batch_idx}.")
+                    continue # bad batch if metadata is not available
+                block = metadata
                 
                 for name, spec in metrics.items():
 
