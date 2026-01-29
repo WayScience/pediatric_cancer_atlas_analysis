@@ -119,11 +119,11 @@ class ForegroundPSNR(MaskedMetric):
         den = mask.sum(dim=(1, 2, 3))                 # (B,)        
         mse = (num / den.clamp_min(self._eps)).clamp_min(self._eps)
         
-        i_max = self._i_max_buf.to(device=pred.device, dtype=pred.dtype)
+        i_max = self._i_max_buf.to(
+            device=pred.device, dtype=pred.dtype
+            )
 
-        return 20.0 * torch.log10(
-            torch.tensor(i_max, device=pred.device, dtype=pred.dtype)
-        ) - 10.0 * torch.log10(mse)
+        return 20.0 * torch.log10(i_max) - 10.0 * torch.log10(mse) # type: ignore
 
 
 class ForegroundSSIM(MaskedMetric):
