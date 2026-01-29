@@ -112,7 +112,7 @@ class EvalRunner:
 
             pbar = tqdm(loader, total=len(loader), desc="Evaluating metrics")
             
-            for batch_num, (orig_batch, abl_batch, metadata) in enumerate(pbar):
+            for _, (orig_batch, abl_batch, metadata) in enumerate(pbar):
                 
                 # Read in batch progress
                 batch_parquet_file = out_dir / f"metrics_{batch_idx:06d}.parquet"
@@ -121,6 +121,7 @@ class EvalRunner:
                 # - aug_abs_path: the augmented/ablated image path
                 # - metric_name: the name of the metric being evaluated
                 batch_progress_multi_idx = None
+                batch_progress_df = None
                 if batch_parquet_file.exists():                    
                     try:
                         batch_progress_df = pd.read_parquet(str(
@@ -169,7 +170,7 @@ class EvalRunner:
                         pbar.set_postfix({'Skipping computed metrics': name})
                         continue  # All entries already computed
                     
-                    incompleted = np.where(~exists_mask)
+                    incompleted = np.where(~exists_mask)[0]
                     
                     # subset the batches to compute
                     orig_batch_sub = orig_batch[incompleted]
@@ -207,6 +208,12 @@ class EvalRunner:
                 
                 # Write long_df to parquet file immediately after each batch
                 table = pa.Table.from_pandas(long_df, preserve_index=False)
+                if batch_progress_df is not None:
+                    # Append to existing table
+                    existing_table = pa.Table.from_pandas(
+                        batch_progress_df, preserve_index=False)
+                    table = pa.concat_tables([existing_table, table])
+
                 pq.write_table(table, str(batch_parquet_file))
                 
                 batch_idx += 1
