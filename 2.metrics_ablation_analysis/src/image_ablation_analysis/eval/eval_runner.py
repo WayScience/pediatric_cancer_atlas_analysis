@@ -1,5 +1,5 @@
 """
-eval_metrics.py
+eval_runner.py
 
 Evaluate metrics on image ablation analysis results.
 """
