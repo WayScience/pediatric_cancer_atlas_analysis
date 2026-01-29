@@ -13,13 +13,29 @@ from torchmetrics.image import StructuralSimilarityIndexMeasure
 
 
 class MaskedMetric(Module, ABC):
+    """
+    Interface for masked image quality metrics.
+    Computes metric only on foreground pixels defined by a otsu thresholding mask
+    from a provided binary mask and use that to compute the metric only on foreground pixels.
     
+    Only works well if the parent metric computes a feature-map (image) of per-pixel scores
+        and then reduces them to a single score, such as SSIM and PSNR
+        (see implementations below).
+    """
+
     def __init__(
         self,
         data_range: Tuple[float, float] = (0.0, 1.0),
         eps: float = 1e-12,
         dtype: torch.dtype = torch.float32,
     ):
+        """
+        Initialize MaskedMetric.
+
+        :param data_range: Tuple specifying the (min, max) data range of the input images.
+        :param eps: Small epsilon value to avoid division by zero.
+        :param dtype: Data type for internal computations.
+        """
         super().__init__()
 
         self._data_range = data_range
@@ -31,7 +47,15 @@ class MaskedMetric(Module, ABC):
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
-    ):
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Validate and preprocess input tensors.
+
+        :param pred: Predicted image tensor of shape (B, 1, H, W) or (1, H, W)
+        :param target: Target image tensor of shape (B, 1, H, W) or (1, H, W)
+        :return: Tuple of validated (pred, target) tensors of shape (B, 1, H, W)
+        :raises ValueError: if input tensors are not in the expected format.
+        """
         if pred.device != target.device:
             raise ValueError(
                 "'pred' and 'target' must be on the same device.")
@@ -57,7 +81,15 @@ class MaskedMetric(Module, ABC):
         self,
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
+        """
+        Shared logic to obtain the foreground mask by child classes.
+        If no mask is provided, use Otsu thresholding on the target image
+
+        :param target: Target image tensor of shape (B, 1, H, W)
+        :param mask: Optional binary mask tensor of shape (B, 1, H, W)
+        :return: Binary mask tensor of shape (B, 1, H, W
+        """
         
         if mask is None:
             mask, _ = otsu_threshold(target, return_mask=True)
@@ -85,6 +117,15 @@ class MaskedMetric(Module, ABC):
 
 
 class ForegroundPSNR(MaskedMetric):
+    """
+    Foreground Peak Signal-to-Noise Ratio (PSNR) metric.
+    - PSNR = 10 * log10(i_max^2 / MSE) where MSE is Mean Squared Error and 
+        i_max is the maximum possible pixel value of the images.
+
+    This computes PSNR only on foreground pixels defined by a binary mask.
+    Technically the only masked thing is the MSE computation and for PSNR 
+        computation as the i_max is kept the same as the data range max.
+    """
     
     def __init__(
         self, 
@@ -108,7 +149,14 @@ class ForegroundPSNR(MaskedMetric):
         pred: torch.Tensor,            # (B,1,H,W) or (1,H,W)
         target: torch.Tensor,          # (B,1,H,W) or (1,H,W)
         mask: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
+        """
+        Compute Foreground PSNR between predicted and target images.
+        :param pred: Predicted image tensor of shape (B, 1, H, W)
+        :param target: Target image tensor of shape (B, 1, H, W)
+        :param mask: Optional binary mask tensor of shape (B, 1, H, W)
+        :return: Tensor of shape (B,) containing PSNR values for each image in the batch.
+        """
         
         pred, target = self._validate_input(pred, target)
         mask = self._get_mask(target, mask)
@@ -127,6 +175,12 @@ class ForegroundPSNR(MaskedMetric):
 
 
 class ForegroundSSIM(MaskedMetric):
+    """
+    Foreground Structural Similarity Index Measure (SSIM) metric.
+    Computes SSIM only on foreground pixels defined by a binary mask.
+    - SSIM is computed as a feature map (image) and then reduced using the mask
+      to only consider foreground pixels.
+    """
 
     def __init__(
         self, 
@@ -162,7 +216,15 @@ class ForegroundSSIM(MaskedMetric):
         pred: torch.Tensor,
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
+        """
+        Compute Foreground SSIM between predicted and target images.
+
+        :param pred: Predicted image tensor of shape (B, 1, H, W)
+        :param target: Target image tensor of shape (B, 1, H, W)
+        :param mask: Optional binary mask tensor of shape (B, 1, H, W)
+        :return: Tensor of shape (B,) containing SSIM values for each image
+        """
         
         pred, target = self._validate_input(pred, target)
         mask = self._get_mask(target, mask) 
