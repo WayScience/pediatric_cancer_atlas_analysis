@@ -5,7 +5,7 @@ Utility functions for evaluation in image ablation analysis.
 """
 
 import pathlib
-from typing import Tuple, Sequence, Dict, Any
+from typing import Tuple, Sequence, Dict, Any, Callable
 
 import pandas as pd
 import numpy as np
@@ -47,7 +47,7 @@ class ImagePairDataset(Dataset):
     def __init__(
         self, 
         index_df: pd.DataFrame, 
-        normalizer,
+        normalizer: Callable, # function to normalize images, should work with (H, W) or (C, H, W) numpy arrays
         # minimal unique identifying metadata columns to return
         metadata_cols: Sequence[str] = ['variant', 'original_abs_path', 'aug_abs_path'],
     ):
