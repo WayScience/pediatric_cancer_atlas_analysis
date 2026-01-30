@@ -82,7 +82,7 @@ merged = pd.merge(
 print(len(merged))
 
 
-# In[ ]:
+# In[6]:
 
 
 colspec = ColumnSpec(
@@ -125,16 +125,25 @@ boot_res = bootstrap_nested_regression(merged, colspec, cfg)
 
 # ## Visualize
 
-# In[7]:
+# In[ ]:
 
 
 plot_partial_r2_vs_r2(
     boot_res=boot_res,
-    panel_cols=["cell_line", "ablation_type"],
+
+    # faceting / paneling columns, here as cell line and ablation type
+    panel_cols=["cell_line", "ablation_type"], 
+    # hue column, here as metric names to compare different metrics under each ablation type
     hue_col="metric_name",
+
+    # columns in boot_res corresponding to partial R² and R²
     partial_col="partial_r2_x2",
     r2_col="r2_restricted",
+
+    # labelling and saving options
     partial_label="Partial R² (confluence)",
     r2_label="R² Restricted (higher is better)",
+    save_path=pathlib.Path("plots/partial_r2_vs_r2.png"),
+    show=True,
 )
 

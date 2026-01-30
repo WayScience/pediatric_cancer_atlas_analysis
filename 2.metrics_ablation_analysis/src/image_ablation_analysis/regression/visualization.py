@@ -8,11 +8,12 @@ Functions:
     faceted by specified panel columns and colored by a hue column.
 """
 
+from typing import Sequence, Optional
+from pathlib import Path
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-from typing import Sequence, Optional
 
 
 def plot_partial_r2_vs_r2(
@@ -24,29 +25,23 @@ def plot_partial_r2_vs_r2(
     partial_label: Optional[str] = None,
     r2_label: Optional[str] = None,
     n_cols: int = 3,
+    save_path: Optional[Path] = None,
+    show: bool = True,
 ):
     """
     Generic visualization of partial R² (for x2 term) vs restricted R² (x1-only model),
     faceted by panel_cols and colored by hue_col.
 
-    Parameters
-    ----------
-    boot_res : pd.DataFrame
-        Output from bootstrap_nested_regression (one row per group per bootstrap).
-    panel_cols : Sequence[str]
-        Columns defining each facet/panel (e.g. ["cell_line", "ablation"]).
-    hue_col : str
-        Column used as hue/legend (e.g. "metric_name").
-    partial_col : str, default "partial_r2_x2"
-        Column name for partial R² of x2 term.
-    r2_col : str, default "r2_restricted"
-        Column name for R² of the restricted model.
-    partial_label : str, optional
-        Y-axis label. If None, a generic label is constructed from partial_col.
-    r2_label : str, optional
-        X-axis label. If None, a generic label is constructed from r2_col.
-    n_cols : int, default 3
-        Number of subplot columns.
+    :param boot_res: DataFrame with bootstrap regression results.
+    :param panel_cols: Columns to facet the plots by (one subplot per unique combination).
+    :param hue_col: Column to color the points by (different colors per unique value).
+    :param partial_col: Column name for partial R² values (default: "partial_r2_x2").
+    :param r2_col: Column name for restricted R² values (default: "r2_restricted").
+    :param partial_label: Label for the partial R² axis. If None, a default label is used.
+    :param r2_label: Label for the R² axis. If None, a default label is used.
+    :param n_cols: Number of columns in the subplot grid (default: 3).
+    :param save_path: Optional path to save the figure. If None, the figure is not saved.
+    :param show: Whether to display the plot. If False, the plot is closed after creation.
     """
 
     # --------------------------
@@ -183,4 +178,14 @@ def plot_partial_r2_vs_r2(
         axes[idx].axis("off")
 
     plt.tight_layout()
-    plt.show()
+
+    if save_path is not None:
+        save_path = Path(save_path).resolve()
+        save_root = save_path.parent
+        save_root.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=300)
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
