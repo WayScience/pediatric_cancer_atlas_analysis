@@ -13,6 +13,8 @@ from typing import Optional, Tuple, Dict, Any, Sequence
 
 import numpy as np
 import pandas as pd
+import pandera.pandas as pa
+from pandera.pandas import Column, DataFrameSchema, Check
 import statsmodels.formula.api as smf
 
 
@@ -20,6 +22,17 @@ import statsmodels.formula.api as smf
 class BootstrapConfig:
     """
     Basic configuration for bootstrap nested regression.
+
+    - n_boot: number of bootstrap replicates per group.
+    - sample_frac: fraction of group size to sample in each bootstrap replicate.
+    - replace: whether to sample with replacement.
+    - standardize: whether to z-score specified columns within each bootstrap replicate.
+    - random_state: optional random seed for reproducibility.
+    - use_tqdm: whether to use tqdm progress bars.
+    - drop_na: whether to drop rows with NA in numeric columns before analysis.
+    - min_group_size: minimum number of rows in a group to perform bootstrap.
+    - max_per_group: optional maximum number of rows per group (subsample if exceeded).
+    - robust_cov: optional string specifying robust covariance type for statsmodels.
     """
     n_boot: int = 300
 
@@ -46,6 +59,8 @@ class BootstrapConfig:
 class ColumnSpec:
     """
     Generic column specification for the nested regression.
+    Stores the column names for regression fitting.
+    Returns Pandera schema for use in validation.
 
     - group_cols: columns defining a group (e.g. metric_name, ablation, cell_line, channel, ...)
     - y: outcome column (e.g. "metric_value")
@@ -72,6 +87,34 @@ class ColumnSpec:
     def std_cols(self) -> Tuple[str, ...]:
         return self.standardize_cols or (self.x1, self.x2)
 
+    def to_pandera_schema(self, coerce: bool = True) -> DataFrameSchema:
+        """
+        Generate a Pandera DataFrameSchema for dtype validation.
+        """
+        columns = {}
+
+        # Numeric columns: y, x1, x2 must be finite floats
+        for col in self.numeric_cols:
+            columns[col] = Column(
+                float,
+                checks=[
+                    Check(lambda s: np.isfinite(s).all(), error=f"Column '{col}' contains non-finite values"),
+                ],
+                nullable=False,
+                coerce=coerce,
+            )
+
+        # Group columns: just need to exist (any dtype)
+        for col in self.group_cols:
+            if col not in columns:  # avoid overwriting if a group col is also numeric
+                columns[col] = Column(coerce=False, nullable=True)
+
+        return DataFrameSchema(
+            columns=columns,
+            strict=False,  # allow extra columns
+            coerce=coerce,
+        )
+
 
 """
 Helper modules for nested regression analysis.
@@ -82,31 +125,68 @@ def _coerce_and_filter(
     drop_na: bool = True,
 ) -> pd.DataFrame:
     """
-    Ensure required columns exist and numeric columns are numeric.
-    """
-    missing = [c for c in colspec.required_cols if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
+    Validate and filter DataFrame using Pandera schema generated from ColumnSpec.
 
+    Steps:
+    1. Generate Pandera schema from ColumnSpec
+    2. Coerce numeric columns to float
+    3. Drop rows with NA in numeric columns (if drop_na=True)
+    4. Remove rows with non-finite values (inf, -inf)
+    5. Validate against schema
+
+    :param df: Input DataFrame.
+    :param colspec: ColumnSpec defining required and numeric columns.
+    :param drop_na: Whether to drop rows with NA in numeric columns.
+    :return: Validated and filtered DataFrame.
+    """
     df = df.copy()
 
-    # Coerce numeric columns
+    # Pre-coerce numeric columns to handle non-numeric strings -> NaN
     for c in colspec.numeric_cols:
+        if c not in df.columns:
+            raise pa.errors.SchemaError(
+                schema=None,
+                data=df,
+                message=f"Missing required column: '{c}'",
+            )
         if not pd.api.types.is_numeric_dtype(df[c]):
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
+    # Check group columns exist
+    for c in colspec.group_cols:
+        if c not in df.columns:
+            raise pa.errors.SchemaError(
+                schema=None,
+                data=df,
+                message=f"Missing required column: '{c}'",
+            )
+
+    # Drop NA in numeric columns if requested
     if drop_na:
         df = df.dropna(subset=list(colspec.numeric_cols))
 
-    # Remove infs
+    # Remove rows with inf values
     for c in colspec.numeric_cols:
         df = df[np.isfinite(df[c])]
+
+    # Validate with Pandera schema (will raise SchemaError if validation fails)
+    schema = colspec.to_pandera_schema(coerce=True)
+    df = schema.validate(df)
 
     return df
 
 
 def _standardize_in_place(gdf: pd.DataFrame,
                           cols: Sequence[str]) -> pd.DataFrame:
+    """
+    Z-score specified columns in-place within the given DataFrame to
+        facilitate stable nested regression fitting.
+
+    :param gdf: DataFrame to standardize.
+    :param cols: Columns to z-score.
+    :return: DataFrame with specified columns z-scored.
+    """
+
     gdf = gdf.copy()
     for c in cols:
         s = gdf[c].to_numpy()
@@ -122,6 +202,13 @@ def _fit_ols_formula(df: pd.DataFrame,
                      robust_cov: Optional[str] = None):
     """
     Fit OLS via statsmodels formula; optionally attach robust covariance.
+    Function abstracting the smallest unit of regression that will be
+        ran multiple times per bootstrap.
+
+    :param df: DataFrame with data.
+    :param formula: Patsy formula string for OLS.
+    :param robust_cov: Optional robust covariance type for statsmodels.
+    :return: Fitted regression results.
     """
     model = smf.ols(formula, data=df)
     res = model.fit()
@@ -139,6 +226,12 @@ def _one_bootstrap(
     """
     Run a single bootstrap replicate for one group defined by colspec.group_cols.
     Returns dict of betas, R²s, ΔR², partial R², f², and bookkeeping.
+
+    :param df_group: DataFrame for one group.
+    :param cfg: Bootstrap configuration.
+    :param colspec: Column specification.
+    :param rng: Numpy random generator.
+    :return: Dict with regression results and effect size metrics.
     """
     n = len(df_group)
     bsize = max(2, int(round(cfg.sample_frac * n))) if cfg.sample_frac else n
@@ -210,22 +303,10 @@ def bootstrap_nested_regression(
     Top level function to run bootstrap nested regression for 
         arbitrary grouping and column names.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Long-format data.
-    colspec : ColumnSpec
-        Column configuration (grouping, y, x1, x2, standardize_cols).
-    cfg : BootstrapConfig, optional
-        Bootstrap configuration.
-
-    Returns
-    -------
-    DataFrame
-        One row per bootstrap replicate per group, with:
-        - all group_cols
-        - 'boot_idx'
-        - regression / effect size metrics from _one_bootstrap.
+    :param df: Input DataFrame.
+    :param colspec: ColumnSpec defining required and numeric columns.
+    :param cfg: Bootstrap configuration. If None, default config is used.
+    :return: DataFrame with bootstrap regression results.
     """
     if cfg is None:
         cfg = BootstrapConfig()
