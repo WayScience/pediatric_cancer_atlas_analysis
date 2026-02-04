@@ -125,7 +125,7 @@ boot_res = bootstrap_nested_regression(merged, colspec, cfg)
 
 # ## Visualize
 
-# In[ ]:
+# In[19]:
 
 
 plot_partial_r2_vs_r2(

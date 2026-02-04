@@ -127,6 +127,9 @@ def plot_partial_r2_vs_r2(
     # --------------------------
     # 5. Draw each panel
     # --------------------------
+    # Track legend handles and labels for a single shared legend
+    legend_handles = {}
+
     for idx, (_, combo_row) in enumerate(unique_combinations.iterrows()):
         ax = axes[idx]
 
@@ -141,7 +144,7 @@ def plot_partial_r2_vs_r2(
         for hue_val in combo_data[hue_col].unique():
             metric_data = combo_data[combo_data[hue_col] == hue_val]
 
-            ax.errorbar(
+            errorbar = ax.errorbar(
                 metric_data["r2_restricted_mean"],
                 metric_data["partial_r2_mean"],
                 xerr=[
@@ -160,24 +163,38 @@ def plot_partial_r2_vs_r2(
                 capsize=3,
             )
 
+            # Collect legend handles (only need one per hue value)
+            if hue_val not in legend_handles:
+                legend_handles[hue_val] = errorbar
+
         # Horizontal reference line at 0 partial R²
         ax.axhline(y=0, color="red", linestyle="--", linewidth=1, alpha=0.7)
-
-        ax.set_xlabel(r2_label, fontsize=10)
-        ax.set_ylabel(partial_label, fontsize=10)
 
         # Title: join panel values for this combo
         title_parts = [f"{col}={combo_row[col]}" for col in panel_cols]
         ax.set_title(" | ".join(title_parts), fontsize=12)
 
-        ax.legend(fontsize=8, loc="best")
         ax.grid(True, alpha=0.3)
 
     # Hide unused subplots
     for idx in range(n_plots, len(axes)):
         axes[idx].axis("off")
 
-    plt.tight_layout()
+    fig.supxlabel(r2_label, fontsize=12)
+    fig.supylabel(partial_label, fontsize=12)
+
+    # Create a single shared legend outside the plots (to the right)
+    handles = [legend_handles[hue_val] for hue_val in unique_hues if hue_val in legend_handles]
+    labels = [hue_val for hue_val in unique_hues if hue_val in legend_handles]
+    fig.legend(
+        handles, labels,
+        loc="center left",
+        bbox_to_anchor=(0.975, 0.5),
+        fontsize=10,
+        frameon=True,
+    )
+
+    plt.tight_layout(rect=[0.03, 0.03, 0.95, 1.0]) # 10% right space for legend
 
     if save_path is not None:
         save_path = Path(save_path).resolve()
