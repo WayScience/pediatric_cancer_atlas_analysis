@@ -23,6 +23,10 @@ dependencies = [
     "pandas",
     "kornia",
     "torchmetrics",
+    "torchvision",
+    "lightning",
+    "statsmodels",
+    "pandera[pandas]",
 ]
 [project.optional-dependencies]
 dev = [
