@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # 4.1b. Run Model Inferences (wGAN)
+# # 4.1a. Run Model Inferences (UNet)
 # 
-# This notebook runs batch inference for trained virtual staining models (wGAN architecture) on the evaluation split of the pediatric cancer atlas imaging data.
+# This notebook runs batch inference for trained virtual staining models (UNet architecture) on the evaluation split of the pediatric cancer atlas imaging data.
 # 
 # **Workflow:**
 # 1. Load the evaluation loaddata and single-cell feature tables, filtering to plates of interest.
@@ -11,7 +11,7 @@
 # 3. For each model run, load weights → iterate over (plate, row) groups → crop single-cell patches → run inference → write per-cell TIFF outputs and update the checkpoint index.
 # 4. Tear down the checkpoint session, cleaning up any empty run directories.
 
-# In[ ]:
+# In[1]:
 
 
 import pathlib
@@ -35,7 +35,7 @@ from vs_eval_utils.model_inference import inference_and_checkpoint
 from vs_eval_utils.nb_utils import find_git_root
 
 
-# In[ ]:
+# In[2]:
 
 
 # virtual staining model and dataset
@@ -45,14 +45,14 @@ from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
 from virtual_stain_flow.transforms.normalizations import MaxScaleNormalize
 
 
-# In[ ]:
+# In[3]:
 
 
 INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference')
 INFERENCE_DIR.mkdir(exist_ok=True) 
 
 
-# In[ ]:
+# In[4]:
 
 
 ANALYSIS_REPO_ROOT = find_git_root()
@@ -72,7 +72,7 @@ if not SC_FEATURES_DIR.exists():
     raise FileNotFoundError(f"Single-cell features directory not found at {SC_FEATURES_DIR}")
 
 
-# In[ ]:
+# In[5]:
 
 
 PLATES: list[str] | None = ["BR00143976", "BR00143977"]
@@ -128,7 +128,7 @@ loaddata_df_sub = loaddata_df_sub.loc[
 print (f"Subset loaddata_df_sub to {len(loaddata_df_sub)} rows based on intersection with sc_features.")
 
 
-# In[ ]:
+# In[6]:
 
 
 devices = {}
@@ -145,22 +145,22 @@ else:
 DEVICE = devices['NVIDIA RTX A6000']
 
 
-# In[ ]:
+# In[7]:
 
 
 checked_run_path = pathlib.Path(
-    '/mnt/hdd20tb/alpine_eval/checked_model_runs.csv'
+    'checked_model_runs.csv'
 )
 if not checked_run_path.exists():
     raise RuntimeError(f'Checked run info file not found at {checked_run_path}')
 
 all_run_info_df = pd.read_csv(checked_run_path)
-wgan_run_info_df = all_run_info_df[all_run_info_df['architecture'] == 'wGAN']
-print(f"Total wGAN runs: {len(wgan_run_info_df)}")
-wgan_run_info_df.head()
+unet_run_info_df = all_run_info_df[all_run_info_df['architecture'] == 'UNet']
+print(f"Total UNet runs: {len(unet_run_info_df)}")
+unet_run_info_df.head()
 
 
-# In[ ]:
+# In[8]:
 
 
 set_checkpoint_index(
@@ -170,14 +170,14 @@ set_checkpoint_index(
 )
 
 
-# In[ ]:
+# In[9]:
 
 
 df = get_checkpoint_index()
 df.head()
 
 
-# In[ ]:
+# In[10]:
 
 
 def prep_crop_dataset(
@@ -218,10 +218,10 @@ def prep_crop_dataset(
     return crop_ds
 
 
-# In[ ]:
+# In[11]:
 
 
-for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows():
+for i, run_row in unet_run_info_df.reset_index(drop=True,inplace=False).iterrows():
 
     run_id = run_row['run_id']
     run_path = pathlib.Path(run_row["path"])
@@ -231,7 +231,13 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
             run_path,
             device=DEVICE,
             model_handle=UNet,
-            model_config=None,
+            model_config={
+                "init": {
+                    "in_channels": 1,
+                    "out_channels": 1,
+                    "depth": 4,
+                }
+            },
             compile_model=False
         )
     except Exception:
@@ -241,18 +247,19 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
     for conds, group in loaddata_df_sub.groupby(
         ['Metadata_Plate', 'row']
     ):  
-        try:  
-            dataset = prep_crop_dataset(group)
-        except Exception as e:
-            print(f"Error preparing dataset for conditions {conds}: {e}")
-            continue    
+        # try:  
+        #     dataset = prep_crop_dataset(group)
+        # except Exception as e:
+        #     print(f"Error preparing dataset for conditions {conds}: {e}")
+        #     continue    
 
         try:
             inference_and_checkpoint(
                 model=model,
                 model_metadata=run_row,
                 tasks=group,
-                dataset=dataset,
+                dataset=None,
+                dataset_fn=prep_crop_dataset,
                 output_root=pathlib.Path(INFERENCE_DIR),
                 output_flat=False,
                 device=DEVICE,
@@ -262,7 +269,7 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
             continue        
 
 
-# In[ ]:
+# In[12]:
 
 
 teardown_checkpoint_index()
