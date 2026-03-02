@@ -368,8 +368,11 @@ def assemble_update_batch(
     """
     if isinstance(tasks, pd.DataFrame):
         task_list = tasks.to_dict(orient="records")
+    elif isinstance(tasks, list):
+        task_list = tasks
     else:
-        task_list = list(tasks)
+        raise TypeError("tasks must be a DataFrame or a list of dicts/Series")
+
 
     if len(task_list) != len(output_files):
         raise ValueError(
