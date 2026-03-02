@@ -11,7 +11,7 @@
 # 3. For each model run, load weights → iterate over (plate, row) groups → crop single-cell patches → run inference → write per-cell TIFF outputs and update the checkpoint index.
 # 4. Tear down the checkpoint session, cleaning up any empty run directories.
 
-# In[1]:
+# In[ ]:
 
 
 import pathlib
@@ -32,27 +32,26 @@ from vs_eval_utils.inference_checkpointing import ( # type: ignore
 )
 from vs_eval_utils.model_loader import load_model_weights
 from vs_eval_utils.model_inference import inference_and_checkpoint
+from vs_eval_utils.ds_utils import prep_crop_dataset
 from vs_eval_utils.nb_utils import find_git_root
 
 
-# In[2]:
+# In[ ]:
 
 
 # virtual staining model and dataset
-from virtual_stain_flow.models.unet import UNet
-from virtual_stain_flow.datasets.cp_loaddata_dataset import CPLoadDataImageDataset
+from virtual_stain_flow.models.unext import ConvNeXtUNet
 from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
-from virtual_stain_flow.transforms.normalizations import MaxScaleNormalize
 
 
-# In[3]:
+# In[ ]:
 
 
 INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference')
 INFERENCE_DIR.mkdir(exist_ok=True) 
 
 
-# In[4]:
+# In[ ]:
 
 
 ANALYSIS_REPO_ROOT = find_git_root()
@@ -72,7 +71,7 @@ if not SC_FEATURES_DIR.exists():
     raise FileNotFoundError(f"Single-cell features directory not found at {SC_FEATURES_DIR}")
 
 
-# In[5]:
+# In[ ]:
 
 
 PLATES: list[str] | None = ["BR00143976", "BR00143977"]
@@ -127,8 +126,21 @@ loaddata_df_sub = loaddata_df_sub.loc[
 ]
 print (f"Subset loaddata_df_sub to {len(loaddata_df_sub)} rows based on intersection with sc_features.")
 
+def prep_crop_ds_wrap(loaddata_df: pd.DataFrame) -> CropCellImageDataset:
+    """
+    Wrapped helper to specify the sc_features argument for dataset preparation
+    """
+    try:
+        return prep_crop_dataset(
+            loaddata_df,
+            sc_features # good for all batch 1
+        )
+    except Exception as e:
+        print(f"Error preparing dataset: {e}")
+        raise e
 
-# In[6]:
+
+# In[ ]:
 
 
 devices = {}
@@ -145,7 +157,7 @@ else:
 DEVICE = devices['NVIDIA RTX A6000']
 
 
-# In[7]:
+# In[ ]:
 
 
 checked_run_path = pathlib.Path(
@@ -160,7 +172,7 @@ print(f"Total ConvNeXtUNet runs: {len(unext_run_info_df)}")
 unext_run_info_df.head()
 
 
-# In[8]:
+# In[ ]:
 
 
 set_checkpoint_index(
@@ -170,61 +182,14 @@ set_checkpoint_index(
 )
 
 
-# In[9]:
+# In[ ]:
 
 
 df = get_checkpoint_index()
 df.head()
 
 
-# In[10]:
-
-
-def prep_crop_dataset(
-    loaddata_df: pd.DataFrame,
-    sc_features: pd.DataFrame = sc_features, # good for all batch 1
-) -> CropCellImageDataset:
-    """
-    Helper invoking the virtual_stain_flow dataset initialization steps
-        to prepare a CropCellImageDataset from a loaddata DataFrame.
-
-    :param loaddata_df: DataFrame containing the loaddata information for 
-        the samples to be included in the dataset
-    :param sc_features: DataFrame containing the single-cell features 
-        for the samples. The notebook initializes a global sc_features DataFrame
-        that is used as default argument here. 
-    :return: Initialized CropCellImageDataset ready for inference
-    """
-    cp_ids = CPLoadDataImageDataset(
-            loaddata=loaddata_df,
-            sc_feature=sc_features,
-            pil_image_mode="I;16",
-        )
-    crop_ds = CropCellImageDataset.from_dataset(
-        cp_ids,
-        patch_size=256,
-        object_coord_x_field="Metadata_Cells_Location_Center_X",
-        object_coord_y_field="Metadata_Cells_Location_Center_Y",
-        fov=(1080, 1080),
-    )
-    crop_ds.transform = MaxScaleNormalize(
-        p=1,
-        normalization_factor=2**16 - 1,  # normalize to [0, 1]
-    )
-    crop_ds.input_channel_keys = ["OrigBrightfield"]
-    # Any target channel is fine for eval as we only need input BF
-    crop_ds.target_channel_keys = ["OrigBrightfield"]
-
-    return crop_ds
-
-
-# In[11]:
-
-
-from virtual_stain_flow.models.unext import ConvNeXtUNet
-
-
-# In[12]:
+# In[ ]:
 
 
 for i, run_row in unext_run_info_df.reset_index(drop=True,inplace=False).iterrows():
@@ -254,7 +219,7 @@ for i, run_row in unext_run_info_df.reset_index(drop=True,inplace=False).iterrow
                 model_metadata=run_row,
                 tasks=group,
                 dataset=None,
-                dataset_fn=prep_crop_dataset,
+                dataset_fn=prep_crop_ds_wrap,
                 output_root=pathlib.Path(INFERENCE_DIR),
                 output_flat=False,
                 device=DEVICE,
@@ -264,7 +229,7 @@ for i, run_row in unext_run_info_df.reset_index(drop=True,inplace=False).iterrow
             continue        
 
 
-# In[13]:
+# In[ ]:
 
 
 teardown_checkpoint_index()

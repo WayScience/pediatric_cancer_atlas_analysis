@@ -32,6 +32,7 @@ from vs_eval_utils.inference_checkpointing import ( # type: ignore
 )
 from vs_eval_utils.model_loader import load_model_weights
 from vs_eval_utils.model_inference import inference_and_checkpoint
+from vs_eval_utils.ds_utils import prep_crop_dataset
 from vs_eval_utils.nb_utils import find_git_root
 
 
@@ -40,9 +41,7 @@ from vs_eval_utils.nb_utils import find_git_root
 
 # virtual staining model and dataset
 from virtual_stain_flow.models.unet import UNet
-from virtual_stain_flow.datasets.cp_loaddata_dataset import CPLoadDataImageDataset
 from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
-from virtual_stain_flow.transforms.normalizations import MaxScaleNormalize
 
 
 # In[ ]:
@@ -127,6 +126,19 @@ loaddata_df_sub = loaddata_df_sub.loc[
 ]
 print (f"Subset loaddata_df_sub to {len(loaddata_df_sub)} rows based on intersection with sc_features.")
 
+def prep_crop_ds_wrap(loaddata_df: pd.DataFrame) -> CropCellImageDataset:
+    """
+    Wrapped helper to specify the sc_features argument for dataset preparation
+    """
+    try:
+        return prep_crop_dataset(
+            loaddata_df,
+            sc_features # good for all batch 1
+        )
+    except Exception as e:
+        print(f"Error preparing dataset: {e}")
+        raise e
+
 
 # In[ ]:
 
@@ -180,47 +192,6 @@ df.head()
 # In[ ]:
 
 
-def prep_crop_dataset(
-    loaddata_df: pd.DataFrame,
-    sc_features: pd.DataFrame = sc_features, # good for all batch 1
-) -> CropCellImageDataset:
-    """
-    Helper invoking the virtual_stain_flow dataset initialization steps
-        to prepare a CropCellImageDataset from a loaddata DataFrame.
-
-    :param loaddata_df: DataFrame containing the loaddata information for 
-        the samples to be included in the dataset
-    :param sc_features: DataFrame containing the single-cell features 
-        for the samples. The notebook initializes a global sc_features DataFrame
-        that is used as default argument here. 
-    :return: Initialized CropCellImageDataset ready for inference
-    """
-    cp_ids = CPLoadDataImageDataset(
-            loaddata=loaddata_df,
-            sc_feature=sc_features,
-            pil_image_mode="I;16",
-        )
-    crop_ds = CropCellImageDataset.from_dataset(
-        cp_ids,
-        patch_size=256,
-        object_coord_x_field="Metadata_Cells_Location_Center_X",
-        object_coord_y_field="Metadata_Cells_Location_Center_Y",
-        fov=(1080, 1080),
-    )
-    crop_ds.transform = MaxScaleNormalize(
-        p=1,
-        normalization_factor=2**16 - 1,  # normalize to [0, 1]
-    )
-    crop_ds.input_channel_keys = ["OrigBrightfield"]
-    # Any target channel is fine for eval as we only need input BF
-    crop_ds.target_channel_keys = ["OrigBrightfield"]
-
-    return crop_ds
-
-
-# In[ ]:
-
-
 for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows():
 
     run_id = run_row['run_id']
@@ -231,7 +202,13 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
             run_path,
             device=DEVICE,
             model_handle=UNet,
-            model_config=None,
+            model_config={
+                "init": {
+                    "in_channels": 1,
+                    "out_channels": 1,
+                    "depth": 4,
+                }
+            },
             compile_model=False
         )
     except Exception:
@@ -241,18 +218,14 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
     for conds, group in loaddata_df_sub.groupby(
         ['Metadata_Plate', 'row']
     ):  
-        try:  
-            dataset = prep_crop_dataset(group)
-        except Exception as e:
-            print(f"Error preparing dataset for conditions {conds}: {e}")
-            continue    
 
         try:
             inference_and_checkpoint(
                 model=model,
                 model_metadata=run_row,
                 tasks=group,
-                dataset=dataset,
+                dataset=None,
+                dataset_fn=prep_crop_ds_wrap,
                 output_root=pathlib.Path(INFERENCE_DIR),
                 output_flat=False,
                 device=DEVICE,
