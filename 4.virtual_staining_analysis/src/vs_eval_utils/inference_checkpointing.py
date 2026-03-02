@@ -14,7 +14,7 @@ Helper module for checkpointing and resuming inference runs.
 from dataclasses import dataclass, field
 from datetime import datetime
 import pathlib
-from typing import Iterable
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -310,14 +310,14 @@ def set_metadata_model_columns_bookkeeping(columns: list[str]) -> None:
 
 
 def tasks_completed(
-    tasks: pd.DataFrame | Iterable[pd.Series | dict],
+    tasks: pd.DataFrame | List[pd.Series | dict],
     model: pd.Series | dict,
 ) -> pd.DataFrame:
     """
     Checks if a batch of inference tasks have already been completed against
         the global checkpoint index.
 
-    :param tasks: Iterable of Series or dict containing metadata of the
+    :param tasks: List of Series or dict containing metadata of the
         inference tasks to check.
     :param model: Series or dict containing metadata of the model used for the
         inference tasks.
@@ -354,20 +354,20 @@ def tasks_completed(
 
 
 def assemble_update_batch(
-    tasks: pd.DataFrame | Iterable[pd.Series | dict],
+    tasks: pd.DataFrame | List[pd.Series | dict],
     output_files: list[pathlib.Path],
     model_metadata: pd.Series | dict,
 ) -> pd.DataFrame:
     """
     Assemble an update DataFrame for a batch of completed inference tasks.
 
-    :param tasks: DataFrame or iterable of Series/dict with task metadata.
+    :param tasks: DataFrame or List of Series/dict with task metadata.
     :param output_files: Output file paths for the completed tasks.
     :param model_metadata: Metadata of the model used for inference.
     :return: DataFrame with one row per checkpoint entry.
     """
     if isinstance(tasks, pd.DataFrame):
-        task_list = [row for _, row in tasks.iterrows()]
+        task_list = tasks.to_dict(orient="records")
     else:
         task_list = list(tasks)
 
@@ -384,14 +384,14 @@ def assemble_update_batch(
 
 
 def update_checkpoint_batch(
-    tasks: pd.DataFrame | Iterable[pd.Series | dict],
+    tasks: pd.DataFrame | List[pd.Series | dict],
     output_files: list[pathlib.Path],
     model_metadata: pd.Series | dict,
 ) -> None:
     """
     Update the checkpoint index with a batch of completed inference tasks.
 
-    :param tasks: Iterable of Series or dict containing metadata of the completed inference tasks.
+    :param tasks: List of Series or dict containing metadata of the completed inference tasks.
     :param output_files: List of output file paths corresponding to the completed inference tasks.
     :param model_metadata: Series or dict containing metadata of the model used for the inference tasks.
     """
