@@ -92,25 +92,52 @@ class _CheckpointColumnSchema:
     ) -> dict:
         """
         Assemble one checkpoint-index row from task + model metadata.
+        This can be used by the parquet update helper to assemble the
+            updated checkpoint rows after an inference batch is compelted.
         """
         return {
+            # Task metadata columns
             **{c: task[c] for c in self.metadata},
+            # Model metadata columns with prepended prefix to model data
             **{f"Metadata_Model_{c}": model_metadata[c] for c in self.model},
+            # Bookkeeping metadata columns (not part of the key), included if present in task/model metadata
             **{c: (task[c] if c in task else None) for c in self.metadata_bookkeeping},
+            # Bookkeeping model metadata columns with prepended prefix, included if present in model metadata
             **{
                 f"Metadata_Model_{c}": (
                     model_metadata[c] if c in model_metadata else None
                 )
                 for c in self.model_bookkeeping
             },
+            # Output file path for the inference result (tif files written)
             "output_file": str(output_file),
         }
     
+    def set_metadata(self, metadata_cols: list[str]) -> None:
+        self.metadata = metadata_cols
+
+    def set_metadata_bookkeeping(self, bookkeeping_cols: list[str]) -> None:
+        self.metadata_bookkeeping = bookkeeping_cols
+
+    def set_model_metadata(self, model_cols: list[str]) -> None:
+        self.model = model_cols
+
+    def set_model_bookkeeping(self, model_bookkeeping_cols: list[str]) -> None:
+        self.model_bookkeeping = model_bookkeeping_cols    
+
 
 @dataclass
 class _CheckpointSession:
     """
-    All mutable state for an active checkpointing session.
+    Dataclass serving as a state object for an active checkpointing session.
+    Initialized automatically by set_checkpoint_index() and kept as
+        a global variable for the session, which is accessed by exposed helpers
+        including tasks_completed(), assemble_update_batch(), and update_checkpoint_batch().  
+    The only mutable component of this state object is the counter 
+        tracking the parquet file parts written during the session. 
+    Every thing else (pathing, index DataFrame, and MultiIndex) are 
+        immutable session metadata that is needed by the inference runner
+        and hence bundled. 
     """
 
     root: pathlib.Path
@@ -165,6 +192,7 @@ def set_checkpoint_index(
         )
 
     # Load existing parquet shards
+    # rglob will be needed due to the nested timestamped subdirectory structure
     collected = list(checkpoint_index_path.rglob("*.parquet"))
     if collected:
         index_df = pd.concat(
@@ -172,6 +200,7 @@ def set_checkpoint_index(
             ignore_index=True,
         )
     else:
+        # if no existing checkpoint, initialize empty index with the right columns
         index_df = pd.DataFrame(columns=_columns.all_columns)
 
     if (
