@@ -7,6 +7,7 @@ what has been inferenced and what still needs to be done.
 """
 
 import pathlib
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -63,8 +64,9 @@ def inference_and_checkpoint(
     model: torch.nn.Module,
     model_metadata: pd.Series | dict,
     tasks: pd.DataFrame,
-    dataset: torch.utils.data.Dataset,
     output_root: pathlib.Path,
+    dataset: Optional[torch.utils.data.Dataset] = None,
+    dataset_fn: Optional[callable] = None,
     output_flat: bool = True,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
 ) -> None:
@@ -75,6 +77,7 @@ def inference_and_checkpoint(
     :param model_metadata: Metadata of the model being used for inference.
     :param tasks: DataFrame containing metadata of tasks to run inference on.
     :param dataset: Dataset to run inference on, which should be compatible with the tasks DataFrame.
+    :param dataset_fn: Optional function to create a dataset if dataset is None.
     :param output_root: Root directory to save inference outputs and checkpoint files.
     """
 
@@ -90,6 +93,15 @@ def inference_and_checkpoint(
         print("All tasks have already been completed for this model. No inference to run.")
         return 
     
+    # lazy dataset construction
+    if dataset is None:
+        if dataset_fn is None:
+            raise ValueError("Either a dataset or a dataset_fn must be provided.")
+        try:
+            dataset = dataset_fn(tasks_todo)
+        except Exception:
+            raise ValueError("Failed to create dataset using dataset_fn.")
+
     try:
         dataloader = torch.utils.data.DataLoader(
             dataset,
