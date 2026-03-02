@@ -77,20 +77,30 @@ def load_model_weights(
             f"Selected model weight file {chosen_weight} does not exist."
         )    
 
-    if not model_config:
-        model_config_path = run_path / "artifacts" / "configs" / "model_config.json"
-        if not model_config_path.exists():
-            raise RuntimeError(
-                "No model config found at expected location "
-                f"{model_config_path} for run {run_path}."
-                "Please manually provide model_config or ensure logging version saves it."
-            )
+    logged_model_config = None
+
+    # prefer logged model config if available since it is directly tied to the weights
+    model_config_path = run_path / "artifacts" / "configs" / "model_config.json"
+    if model_config_path.exists():
         try:
-            model_config = json.loads(model_config_path.read_text())
+            logged_model_config = json.loads(model_config_path.read_text())
         except Exception as e:
+            logged_model_config = None
             raise RuntimeError(
                 f"Failed to load model config from {model_config_path}: {e}"
+            )    
+    
+    if logged_model_config:
+        model_config = logged_model_config
+    else:
+        # if no logged config, rely on provided config defaults which 
+        # now will be required
+        if not model_config:
+            raise RuntimeError(
+                f"No model config provided or found for run {run_path}. "
+                "Cannot initialize model without config."
             )
+    
     try:
         model = model_handle(
             **model_config['init']
