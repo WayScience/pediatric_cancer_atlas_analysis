@@ -65,14 +65,17 @@ class ColumnSpec:
     - group_cols: columns defining a group (e.g. metric_name, ablation, cell_line, channel, ...)
     - y: outcome column (e.g. "metric_value")
     - x1: predictor in restricted model (e.g. "config")
-    - x2: additional predictor in full model (e.g. "confluence")
+    - x2: additional predictor in full model (e.g. "confluence" or "cell_line")
+    - x2_categorical: whether x2 should be treated as a categorical factor in the
+      full model via patsy/statsmodels C(x2)
     - standardize_cols: which columns to z-score within each bootstrap.
-      If None, defaults to (x1, x2).
+      If None, defaults to (x1, x2) when x2 is numeric, or just (x1) when x2 is categorical.
     """
     group_cols: Tuple[str, ...]
     y: str
     x1: str
     x2: str
+    x2_categorical: bool = False
     standardize_cols: Optional[Tuple[str, ...]] = None
 
     @property
@@ -81,11 +84,32 @@ class ColumnSpec:
 
     @property
     def numeric_cols(self) -> Tuple[str, ...]:
+        """
+        Columns that must be numeric for validation/coercion.
+        If x2 is categorical, do not force it to numeric.
+        """
+        if self.x2_categorical:
+            return (self.y, self.x1)
         return (self.y, self.x1, self.x2)
 
     @property
     def std_cols(self) -> Tuple[str, ...]:
-        return self.standardize_cols or (self.x1, self.x2)
+        """
+        Default columns to standardize.
+        Do not standardize x2 automatically if it is categorical.
+        """
+        if self.standardize_cols is not None:
+            return self.standardize_cols
+        if self.x2_categorical:
+            return (self.x1,)
+        return (self.x1, self.x2)
+
+    @property
+    def x2_term(self) -> str:
+        """
+        Formula-ready representation of x2.
+        """
+        return f"C({self.x2})" if self.x2_categorical else self.x2
 
     def to_pandera_schema(self, coerce: bool = True) -> DataFrameSchema:
         """
@@ -93,7 +117,7 @@ class ColumnSpec:
         """
         columns = {}
 
-        # Numeric columns: y, x1, x2 must be finite floats
+        # Numeric columns: y and x1 must always be numeric; x2 only if non-categorical
         for col in self.numeric_cols:
             columns[col] = Column(
                 float,
@@ -106,12 +130,16 @@ class ColumnSpec:
 
         # Group columns: just need to exist (any dtype)
         for col in self.group_cols:
-            if col not in columns:  # avoid overwriting if a group col is also numeric
+            if col not in columns:
                 columns[col] = Column(coerce=False, nullable=True)
+
+        # Ensure categorical x2 exists in schema if it's not already covered
+        if self.x2_categorical and self.x2 not in columns:
+            columns[self.x2] = Column(coerce=False, nullable=True)
 
         return DataFrameSchema(
             columns=columns,
-            strict=False,  # allow extra columns
+            strict=False,
             coerce=coerce,
         )
 
@@ -152,8 +180,8 @@ def _coerce_and_filter(
         if not pd.api.types.is_numeric_dtype(df[c]):
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    # Check group columns exist
-    for c in colspec.group_cols:
+    # Check non-numeric required columns exist too
+    for c in colspec.required_cols:
         if c not in df.columns:
             raise pa.errors.SchemaError(
                 schema=None,
@@ -165,11 +193,15 @@ def _coerce_and_filter(
     if drop_na:
         df = df.dropna(subset=list(colspec.numeric_cols))
 
-    # Remove rows with inf values
+    # Remove rows with inf values from numeric columns
     for c in colspec.numeric_cols:
         df = df[np.isfinite(df[c])]
 
-    # Validate with Pandera schema (will raise SchemaError if validation fails)
+    # Optional: if x2 is categorical, drop NA there as well so C(x2) behaves cleanly
+    if drop_na and colspec.x2_categorical:
+        df = df.dropna(subset=[colspec.x2])
+
+    # Validate with Pandera schema
     schema = colspec.to_pandera_schema(coerce=True)
     df = schema.validate(df)
 
@@ -242,30 +274,33 @@ def _one_bootstrap(
         boot = _standardize_in_place(boot, cols=colspec.std_cols)
 
     y, x1, x2 = colspec.y, colspec.x1, colspec.x2
+    x2_term = colspec.x2_term
 
-    # e.g. "metric_value ~ config" and "metric_value ~ config + confluence"
     formula_re = f"{y} ~ {x1}"
-    formula_fu = f"{y} ~ {x1} + {x2}"
+    formula_fu = f"{y} ~ {x1} + {x2_term}"
 
     res_re = _fit_ols_formula(boot, formula_re, cfg.robust_cov)
     res_fu = _fit_ols_formula(boot, formula_fu, cfg.robust_cov)
 
     beta_x1_re = res_re.params.get(x1, np.nan)
     beta_x1_fu = res_fu.params.get(x1, np.nan)
-    beta_x2    = res_fu.params.get(x2, np.nan)
+
+    # For categorical x2 there is no single coefficient, so report NaN
+    if colspec.x2_categorical:
+        beta_x2 = np.nan
+    else:
+        beta_x2 = res_fu.params.get(x2, np.nan)
 
     r2_re  = float(getattr(res_re, "rsquared", np.nan))
     r2_fu  = float(getattr(res_fu, "rsquared", np.nan))
     ssr_re = float(getattr(res_re, "ssr", np.nan))
     ssr_fu = float(getattr(res_fu, "ssr", np.nan))
 
-    # Incremental R² (delta R²)
     if np.isfinite(r2_re) and np.isfinite(r2_fu):
         delta_r2 = r2_fu - r2_re
     else:
         delta_r2 = np.nan
 
-    # Partial R² for x2
     if np.isfinite(r2_re) and np.isfinite(r2_fu) and (1 - r2_re) > 0:
         partial_r2_x2 = (r2_fu - r2_re) / (1 - r2_re)
     elif np.isfinite(ssr_re) and np.isfinite(ssr_fu) and ssr_re > 0:
@@ -273,14 +308,12 @@ def _one_bootstrap(
     else:
         partial_r2_x2 = np.nan
 
-    # Cohen’s f² for x2
     if np.isfinite(r2_fu) and (1 - r2_fu) > 0:
         f2_x2 = (r2_fu - r2_re) / (1 - r2_fu)
     else:
         f2_x2 = np.nan
 
     return {
-        # keep generic names so the code is column-agnostic
         "beta_x1_restricted": beta_x1_re,
         "beta_x1_full": beta_x1_fu,
         "beta_x2": beta_x2,
