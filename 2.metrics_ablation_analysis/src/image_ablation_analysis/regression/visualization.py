@@ -14,7 +14,7 @@ from pathlib import Path
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-
+import numpy as np
 
 def plot_partial_r2_vs_r2(
     boot_res: pd.DataFrame,
@@ -130,6 +130,8 @@ def plot_partial_r2_vs_r2(
     # Track legend handles and labels for a single shared legend
     legend_handles = {}
 
+    first_ax = True
+
     for idx, (_, combo_row) in enumerate(unique_combinations.iterrows()):
         ax = axes[idx]
 
@@ -167,8 +169,48 @@ def plot_partial_r2_vs_r2(
             if hue_val not in legend_handles:
                 legend_handles[hue_val] = errorbar
 
-        # Horizontal reference line at 0 partial R²
-        ax.axhline(y=0, color="red", linestyle="--", linewidth=1, alpha=0.7)
+        # --------------------------
+        # Variance-equivalence threshold curve
+        # --------------------------
+        # General form:
+        #   R²_full - R²_restricted = c * R²_restricted
+        # which implies:
+        #   partial R² = (c * x) / (1 - x)
+        # where x = R²_restricted
+
+        threshold_specs = [
+            {
+                "ratio": 1.0,
+                "color": "red",
+                "label": "100% of restricted variance",
+            },
+            {
+                "ratio": 0.5,
+                "color": "orange",
+                "label": "50% of restricted variance",
+            },
+            {
+                "ratio": 0.1,
+                "color": "green",
+                "label": "10% of restricted variance",
+            },
+        ]
+
+        for spec in threshold_specs:
+            x_max = 1.0 / (1.0 + spec["ratio"]) # solve for well defined domain for curve
+            x_curve = np.linspace(0.001, x_max - 1e-3, 200)
+            y_curve = (spec["ratio"] * x_curve) / (1 - x_curve)
+            ax.plot(
+                x_curve,
+                y_curve,
+                linestyle=":",
+                color=spec["color"],
+                linewidth=2,
+                alpha=0.9,
+                label=spec["label"] if first_ax else None,  # only label on first subplot
+            )
+            if first_ax:
+                first_ax = False
 
         # Title: join panel values for this combo
         title_parts = [f"{col}={combo_row[col]}" for col in panel_cols]
@@ -185,7 +227,9 @@ def plot_partial_r2_vs_r2(
 
     # Create a single shared legend outside the plots (to the right)
     handles = [legend_handles[hue_val] for hue_val in unique_hues if hue_val in legend_handles]
+    handles += [plt.Line2D([0], [0], color=spec["color"], linestyle=":", linewidth=2) for spec in threshold_specs]
     labels = [hue_val for hue_val in unique_hues if hue_val in legend_handles]
+    labels += [spec["label"] for spec in threshold_specs]
     fig.legend(
         handles, labels,
         loc="center left",
