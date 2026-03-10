@@ -1,0 +1,4 @@
+# Fill in and placeholders and rename as `config.yml`
+
+image_root: "/ROOT/PATH/TO/YOUR/IMAGES"
+ablation_output_path: 'PATH/TO/WHERE/YOU/WANT/TO/SAVE/ABLATION/INTERMEDIATE/RESULTS'

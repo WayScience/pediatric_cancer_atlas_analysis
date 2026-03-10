@@ -9,6 +9,7 @@ value is still be adjusted here). Please refer to sweeps.py for details.
 """
 
 import pathlib
+import yaml
 
 import numpy as np
 
@@ -23,6 +24,12 @@ from image_ablation_analysis.sweeps import (
     dilate_sweep,
     gamma_sweep
 )
+
+module_config_path = find_git_root() / '2.metrics_ablation_analysis' / 'config.yml'
+if not module_config_path.exists():
+    raise FileNotFoundError(f"Module config file not found: {module_config_path}")
+config = yaml.safe_load(module_config_path.read_text())
+print(config)
 
 data_split_path = find_git_root() / '0.data_preprocessing' / 'data_split_loaddata'
 if not data_split_path.exists() and not data_split_path.is_dir():
@@ -48,10 +55,10 @@ else:
 # the structure of the `images_root` directory. 
 runner = AblationRunner(
     images_root=pathlib.Path(
-        "/mnt/data_nvme1/data/ALSF_pilot_data/"
+        config['image_root']
     ),
     ablation_root=pathlib.Path(
-        "/mnt/hdd20tb/alsf_ablation/"
+        config['ablation_output_path']
     ),
     loaddata_csvs=loaddata_csvs,
     keep_meta_columns=None,
