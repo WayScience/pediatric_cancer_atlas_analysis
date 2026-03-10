@@ -17,6 +17,7 @@
 
 
 import pathlib
+import yaml
 from typing import Dict
 
 import torch
@@ -24,6 +25,7 @@ import torch
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
+from image_ablation_analysis.nb_utils import find_git_root
 from image_ablation_analysis.indexing import ParquetIndex
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.eval.metrics import (
@@ -47,7 +49,12 @@ from image_ablation_analysis.eval.eval_runner import EvalRunner
 # In[2]:
 
 
-abl_root = pathlib.Path("/mnt/hdd20tb/alsf_ablation/").resolve(strict=True)
+module_config_path = find_git_root() / '2.metrics_ablation_analysis' / 'config.yml'
+if not module_config_path.exists():
+    raise FileNotFoundError(f"Module config file not found: {module_config_path}")
+config = yaml.safe_load(module_config_path.read_text())
+
+abl_root = pathlib.Path(config['ablation_output_path']).resolve(strict=True)
 
 out_dir = abl_root / "results" / "metrics"
 out_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +68,7 @@ else:
 
 # ## Set cuda device used for accelarating metrics computation
 
-# In[3]:
+# In[ ]:
 
 
 # Prefer the second GPU for this evaluation analysis by PCIE order
