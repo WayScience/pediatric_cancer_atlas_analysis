@@ -44,10 +44,10 @@ from image_ablation_analysis.eval.eval_runner import EvalRunner
 
 # ## Pathing
 
-# In[ ]:
+# In[2]:
 
 
-abl_root = pathlib.Path("/mnt/hdd20tb/alsf_ablated2/").resolve(strict=True)
+abl_root = pathlib.Path("/mnt/hdd20tb/alsf_ablation/").resolve(strict=True)
 
 out_dir = abl_root / "results" / "metrics"
 out_dir.mkdir(parents=True, exist_ok=True)
@@ -164,7 +164,7 @@ index_df.head()
 # ## Setting up the evaluation dataset from the ablated image index
 # The dataset would return pairs of ablatied image and the non-ablated raw version for convenient metric computation
 
-# In[ ]:
+# In[6]:
 
 
 # normalize 16-bit ablated images to [0, 1] float32
