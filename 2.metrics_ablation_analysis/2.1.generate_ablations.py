@@ -12,6 +12,7 @@ import pathlib
 
 import numpy as np
 
+from image_ablation_analysis.nb_utils import find_git_root
 from image_ablation_analysis.ablation_runner import AblationRunner
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.sweeps import (
@@ -23,10 +24,22 @@ from image_ablation_analysis.sweeps import (
     gamma_sweep
 )
 
+data_split_path = find_git_root() / '0.data_preprocessing' / 'data_split_loaddata'
+if not data_split_path.exists() and not data_split_path.is_dir():
+    raise FileNotFoundError(f"Data split path not found: {data_split_path}")
 
+# Include all datasplits for model training for the ablation analysis as we 
+# are not training models here but assessing the metric sensitivity, so use
+# all available data we have
 loaddata_csvs = [
-    pathlib.Path("/home/weishanli/Waylab/pediatric_cancer_atlas_analysis/0.data_preprocessing/data_split_loaddata/loaddata_train.csv"),
+    data_split_path / file for file in ["loaddata_train.csv", "loaddata_eval.csv"]
 ]
+
+if not all([csv.exists() for csv in loaddata_csvs]):
+    missing_files = [csv for csv in loaddata_csvs if not csv.exists()]
+    raise FileNotFoundError(f"Loaddata CSV files not found: {missing_files}")
+else:
+    print(f"Loaddata CSV files found: {loaddata_csvs}")
 
 # Initialize AblationRunner
 # This object interacts with a local `images_root` of images and a corresponding
@@ -38,7 +51,7 @@ runner = AblationRunner(
         "/mnt/data_nvme1/data/ALSF_pilot_data/"
     ),
     ablation_root=pathlib.Path(
-        "/mnt/hdd20tb/alsf_ablated/"
+        "/mnt/hdd20tb/alsf_ablation/"
     ),
     loaddata_csvs=loaddata_csvs,
     keep_meta_columns=None,
