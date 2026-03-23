@@ -169,7 +169,7 @@ boot_res = bootstrap_nested_regression(for_regression_plate1_u2os, colspec, cfg)
 # 
 # Interpretation:
 # If two metrics fall on the same threshold curve, generally the one to the right is better (equal bias burden but more sensitive).
-# If two metrics is on the same x, the one with lower y is better.
+# If two metrics are on the same x, the one with lower y is better.
 # In general, the most bottom right one would be the best.  
 
 # In[10]:
