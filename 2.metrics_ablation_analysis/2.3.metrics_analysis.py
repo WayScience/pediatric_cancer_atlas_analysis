@@ -161,11 +161,11 @@ boot_res = bootstrap_nested_regression(for_regression_plate1_u2os, colspec, cfg)
 
 # ### Visualize
 
-# Dotted curves here indicates thresolds comparing partial r^2 to restricted r^2:
+# Dotted curves here indicate thresholds comparing partial r^2 to restricted r^2:
 # 1. On red or above: confounder explains ≥100% of restricted variance (quite bad)
 # 2. On yellow or above: confounder explains ≥50% of restricted variance (meh)
 # 3. On green or above: confounder explains ≥10% of restricted variance (better)
-# 4. Below green: onfounder explains <10% of restricted variance
+# 4. Below green: confounder explains <10% of restricted variance
 # 
 # Interpretation:
 # If two metrics fall on the same threshold curve, generally the one to the right is better (equal bias burden but more sensitive).
