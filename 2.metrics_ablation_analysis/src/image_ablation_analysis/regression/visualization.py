@@ -8,8 +8,9 @@ Functions:
     faceted by specified panel columns and colored by a hue column.
 """
 
-from typing import Sequence, Optional
+from typing import Sequence, Optional, Tuple
 from pathlib import Path
+import textwrap
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -25,6 +26,21 @@ def plot_partial_r2_vs_r2(
     partial_label: Optional[str] = None,
     r2_label: Optional[str] = None,
     n_cols: int = 3,
+    title_wrap_width: int = 48,
+    title_fontsize: int = 11,
+    title_pad: float = 10,
+    legend_bbox_to_anchor: Tuple[float, float] = (0.82, 0.5),
+    legend_fontsize: int = 10,
+    legend_frameon: bool = True,
+    subplot_left: float = 0.08,
+    subplot_right: float = 0.78,
+    subplot_top: float = 0.92,
+    subplot_bottom: float = 0.10,
+    subplot_wspace: float = 0.30,
+    subplot_hspace: float = 0.45,
+    save_dpi: int = 300,
+    save_bbox_tight: bool = True,
+    save_pad_inches: float = 0.20,
     save_path: Optional[Path] = None,
     show: bool = True,
 ):
@@ -40,6 +56,21 @@ def plot_partial_r2_vs_r2(
     :param partial_label: Label for the partial R² axis. If None, a default label is used.
     :param r2_label: Label for the R² axis. If None, a default label is used.
     :param n_cols: Number of columns in the subplot grid (default: 3).
+    :param title_wrap_width: Character width used to wrap long subplot titles (default: 48).
+    :param title_fontsize: Font size for subplot titles (default: 11).
+    :param title_pad: Padding for subplot titles in points (default: 10).
+    :param legend_bbox_to_anchor: Figure-relative legend anchor as (x, y) (default: (0.82, 0.5)).
+    :param legend_fontsize: Font size for legend text (default: 10).
+    :param legend_frameon: Whether to draw legend frame (default: True).
+    :param subplot_left: Left margin for subplot area (default: 0.08).
+    :param subplot_right: Right margin for subplot area (default: 0.78).
+    :param subplot_top: Top margin for subplot area (default: 0.92).
+    :param subplot_bottom: Bottom margin for subplot area (default: 0.10).
+    :param subplot_wspace: Horizontal spacing between subplots (default: 0.30).
+    :param subplot_hspace: Vertical spacing between subplots (default: 0.45).
+    :param save_dpi: DPI used for saving figure (default: 300).
+    :param save_bbox_tight: Save with tight bounding box to avoid clipping (default: True).
+    :param save_pad_inches: Extra padding in inches when saving (default: 0.20).
     :param save_path: Optional path to save the figure. If None, the figure is not saved.
     :param show: Whether to display the plot. If False, the plot is closed after creation.
     """
@@ -106,13 +137,31 @@ def plot_partial_r2_vs_r2(
     colors = sns.color_palette("tab10", n_colors=len(unique_hues))
     hue_colors = dict(zip(unique_hues, colors))
 
+    threshold_specs = [
+        {
+            "ratio": 1.0,
+            "color": "red",
+            "label": "100% of restricted variance",
+        },
+        {
+            "ratio": 0.5,
+            "color": "orange",
+            "label": "50% of restricted variance",
+        },
+        {
+            "ratio": 0.1,
+            "color": "green",
+            "label": "10% of restricted variance",
+        },
+    ]
+
     # --------------------------
     # 4. Subplot grid
     # --------------------------
     n_plots = len(unique_combinations)
     n_rows = (n_plots + n_cols - 1) // n_cols
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6.5 * n_cols, 5.2 * n_rows))
     if isinstance(axes, plt.Axes):
         axes = [axes]
     else:
@@ -129,8 +178,6 @@ def plot_partial_r2_vs_r2(
     # --------------------------
     # Track legend handles and labels for a single shared legend
     legend_handles = {}
-
-    first_ax = True
 
     for idx, (_, combo_row) in enumerate(unique_combinations.iterrows()):
         ax = axes[idx]
@@ -178,24 +225,6 @@ def plot_partial_r2_vs_r2(
         #   partial R² = (c * x) / (1 - x)
         # where x = R²_restricted
 
-        threshold_specs = [
-            {
-                "ratio": 1.0,
-                "color": "red",
-                "label": "100% of restricted variance",
-            },
-            {
-                "ratio": 0.5,
-                "color": "orange",
-                "label": "50% of restricted variance",
-            },
-            {
-                "ratio": 0.1,
-                "color": "green",
-                "label": "10% of restricted variance",
-            },
-        ]
-
         for spec in threshold_specs:
             x_max = 1.0 / (1.0 + spec["ratio"]) # solve for well defined domain for curve
             x_curve = np.linspace(0.001, x_max - 1e-3, 200)
@@ -207,14 +236,14 @@ def plot_partial_r2_vs_r2(
                 color=spec["color"],
                 linewidth=2,
                 alpha=0.9,
-                label=spec["label"] if first_ax else None,  # only label on first subplot
+                label=spec["label"] if idx == 0 else None,  # only label on first subplot
             )
-            if first_ax:
-                first_ax = False
 
         # Title: join panel values for this combo
         title_parts = [f"{col}={combo_row[col]}" for col in panel_cols]
-        ax.set_title(" | ".join(title_parts), fontsize=12)
+        title_text = " | ".join(title_parts)
+        wrapped_title = "\n".join(textwrap.wrap(title_text, width=title_wrap_width))
+        ax.set_title(wrapped_title, fontsize=title_fontsize, pad=title_pad)
 
         ax.grid(True, alpha=0.3)
 
@@ -230,21 +259,40 @@ def plot_partial_r2_vs_r2(
     handles += [plt.Line2D([0], [0], color=spec["color"], linestyle=":", linewidth=2) for spec in threshold_specs]
     labels = [hue_val for hue_val in unique_hues if hue_val in legend_handles]
     labels += [spec["label"] for spec in threshold_specs]
-    fig.legend(
+    legend = fig.legend(
         handles, labels,
         loc="center left",
-        bbox_to_anchor=(0.975, 0.5),
-        fontsize=10,
-        frameon=True,
+        bbox_to_anchor=legend_bbox_to_anchor,
+        bbox_transform=fig.transFigure,
+        fontsize=legend_fontsize,
+        frameon=legend_frameon,
     )
 
-    plt.tight_layout(rect=[0.03, 0.03, 0.95, 1.0]) # 10% right space for legend
+    fig.subplots_adjust(
+        left=subplot_left,
+        right=subplot_right,
+        top=subplot_top,
+        bottom=subplot_bottom,
+        wspace=subplot_wspace,
+        hspace=subplot_hspace,
+    )
 
     if save_path is not None:
         save_path = Path(save_path).resolve()
         save_root = save_path.parent
         save_root.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=300)
+        save_kwargs = {
+            "dpi": save_dpi,
+        }
+        if save_bbox_tight:
+            save_kwargs.update(
+                {
+                    "bbox_inches": "tight",
+                    "pad_inches": save_pad_inches,
+                    "bbox_extra_artists": [legend],
+                }
+            )
+        plt.savefig(save_path, **save_kwargs)
 
     if show:
         plt.show()
