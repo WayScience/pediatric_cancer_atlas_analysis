@@ -9,13 +9,14 @@ Only supports single restricted parameter and single additional parameter,
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, Any, Sequence
+from typing import Optional, Tuple, Dict, Any
 
 import numpy as np
 import pandas as pd
-import pandera.pandas as pa
-from pandera.pandas import Column, DataFrameSchema, Check
 import statsmodels.formula.api as smf
+from sklearn.preprocessing import StandardScaler
+
+from .validation import _coerce_and_filter
 
 
 @dataclass
@@ -59,142 +60,43 @@ class BootstrapConfig:
 class ColumnSpec:
     """
     Generic column specification for the nested regression.
-    Stores the column names for regression fitting.
-    Returns Pandera schema for use in validation.
+    Stores column names and lightweight modeling options.
 
     - group_cols: columns defining a group (e.g. metric_name, ablation, cell_line, channel, ...)
     - y: outcome column (e.g. "metric_value")
     - x1: predictor in restricted model (e.g. "config")
-    - x2: additional predictor in full model (e.g. "confluence")
+    - x2: additional predictor in full model (e.g. "confluence" or "cell_line")
+    - x2_categorical: whether x2 should be treated as a categorical factor in the
+      full model via patsy/statsmodels C(x2)
     - standardize_cols: which columns to z-score within each bootstrap.
-      If None, defaults to (x1, x2).
+      If None, defaults to (x1, x2) when x2 is numeric, or just (x1) when x2 is categorical.
     """
     group_cols: Tuple[str, ...]
     y: str
     x1: str
     x2: str
+    x2_categorical: bool = False
     standardize_cols: Optional[Tuple[str, ...]] = None
-
-    @property
-    def required_cols(self) -> Tuple[str, ...]:
-        return (*self.group_cols, self.y, self.x1, self.x2)
-
-    @property
-    def numeric_cols(self) -> Tuple[str, ...]:
-        return (self.y, self.x1, self.x2)
-
-    @property
-    def std_cols(self) -> Tuple[str, ...]:
-        return self.standardize_cols or (self.x1, self.x2)
-
-    def to_pandera_schema(self, coerce: bool = True) -> DataFrameSchema:
-        """
-        Generate a Pandera DataFrameSchema for dtype validation.
-        """
-        columns = {}
-
-        # Numeric columns: y, x1, x2 must be finite floats
-        for col in self.numeric_cols:
-            columns[col] = Column(
-                float,
-                checks=[
-                    Check(lambda s: np.isfinite(s).all(), error=f"Column '{col}' contains non-finite values"),
-                ],
-                nullable=False,
-                coerce=coerce,
-            )
-
-        # Group columns: just need to exist (any dtype)
-        for col in self.group_cols:
-            if col not in columns:  # avoid overwriting if a group col is also numeric
-                columns[col] = Column(coerce=False, nullable=True)
-
-        return DataFrameSchema(
-            columns=columns,
-            strict=False,  # allow extra columns
-            coerce=coerce,
-        )
 
 
 """
 Helper modules for nested regression analysis.
 """
-def _coerce_and_filter(
-    df: pd.DataFrame,
-    colspec: ColumnSpec,
-    drop_na: bool = True,
-) -> pd.DataFrame:
-    """
-    Validate and filter DataFrame using Pandera schema generated from ColumnSpec.
-
-    Steps:
-    1. Generate Pandera schema from ColumnSpec
-    2. Coerce numeric columns to float
-    3. Drop rows with NA in numeric columns (if drop_na=True)
-    4. Remove rows with non-finite values (inf, -inf)
-    5. Validate against schema
-
-    :param df: Input DataFrame.
-    :param colspec: ColumnSpec defining required and numeric columns.
-    :param drop_na: Whether to drop rows with NA in numeric columns.
-    :return: Validated and filtered DataFrame.
-    """
-    df = df.copy()
-
-    # Pre-coerce numeric columns to handle non-numeric strings -> NaN
-    for c in colspec.numeric_cols:
-        if c not in df.columns:
-            raise pa.errors.SchemaError(
-                schema=None,
-                data=df,
-                message=f"Missing required column: '{c}'",
-            )
-        if not pd.api.types.is_numeric_dtype(df[c]):
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-
-    # Check group columns exist
-    for c in colspec.group_cols:
-        if c not in df.columns:
-            raise pa.errors.SchemaError(
-                schema=None,
-                data=df,
-                message=f"Missing required column: '{c}'",
-            )
-
-    # Drop NA in numeric columns if requested
-    if drop_na:
-        df = df.dropna(subset=list(colspec.numeric_cols))
-
-    # Remove rows with inf values
-    for c in colspec.numeric_cols:
-        df = df[np.isfinite(df[c])]
-
-    # Validate with Pandera schema (will raise SchemaError if validation fails)
-    schema = colspec.to_pandera_schema(coerce=True)
-    df = schema.validate(df)
-
-    return df
 
 
-def _standardize_in_place(gdf: pd.DataFrame,
-                          cols: Sequence[str]) -> pd.DataFrame:
-    """
-    Z-score specified columns in-place within the given DataFrame to
-        facilitate stable nested regression fitting.
+def _std_cols(colspec: ColumnSpec) -> Tuple[str, ...]:
+    if colspec.standardize_cols is not None:
+        cols = colspec.standardize_cols
+        if isinstance(cols, str):
+            return (cols,)
+        return tuple(cols)
+    if colspec.x2_categorical:
+        return (colspec.x1,)
+    return (colspec.x1, colspec.x2)
 
-    :param gdf: DataFrame to standardize.
-    :param cols: Columns to z-score.
-    :return: DataFrame with specified columns z-scored.
-    """
 
-    gdf = gdf.copy()
-    for c in cols:
-        s = gdf[c].to_numpy()
-        mu, sd = np.nanmean(s), np.nanstd(s, ddof=0)
-        if sd > 0:
-            gdf[c] = (s - mu) / sd
-        # else leave as-is (all-constant)
-    return gdf
+def _x2_term(colspec: ColumnSpec) -> str:
+    return f"C({colspec.x2})" if colspec.x2_categorical else colspec.x2
 
 
 def _fit_ols_formula(df: pd.DataFrame,
@@ -217,6 +119,38 @@ def _fit_ols_formula(df: pd.DataFrame,
     return res
 
 
+def _compute_effect_sizes(res_re, res_fu) -> Dict[str, float]:
+    r2_re = float(getattr(res_re, "rsquared", np.nan))
+    r2_fu = float(getattr(res_fu, "rsquared", np.nan))
+    ssr_re = float(getattr(res_re, "ssr", np.nan))
+    ssr_fu = float(getattr(res_fu, "ssr", np.nan))
+
+    if np.isfinite(r2_re) and np.isfinite(r2_fu):
+        delta_r2 = r2_fu - r2_re
+    else:
+        delta_r2 = np.nan
+
+    if np.isfinite(r2_re) and np.isfinite(r2_fu) and (1 - r2_re) > 0:
+        partial_r2_x2 = (r2_fu - r2_re) / (1 - r2_re)
+    elif np.isfinite(ssr_re) and np.isfinite(ssr_fu) and ssr_re > 0:
+        partial_r2_x2 = (ssr_re - ssr_fu) / ssr_re
+    else:
+        partial_r2_x2 = np.nan
+
+    if np.isfinite(r2_fu) and (1 - r2_fu) > 0:
+        f2_x2 = (r2_fu - r2_re) / (1 - r2_fu)
+    else:
+        f2_x2 = np.nan
+
+    return {
+        "r2_restricted": r2_re,
+        "r2_full": r2_fu,
+        "delta_r2": delta_r2,
+        "partial_r2_x2": partial_r2_x2,
+        "cohen_f2_x2": f2_x2,
+    }
+
+
 def _one_bootstrap(
     df_group: pd.DataFrame,
     cfg: BootstrapConfig,
@@ -233,64 +167,36 @@ def _one_bootstrap(
     :param rng: Numpy random generator.
     :return: Dict with regression results and effect size metrics.
     """
-    n = len(df_group)
-    bsize = max(2, int(round(cfg.sample_frac * n))) if cfg.sample_frac else n
+    n_group = len(df_group)
+    bsize = max(2, int(round(cfg.sample_frac * n_group))) if cfg.sample_frac else n_group
     idx = rng.choice(df_group.index.to_numpy(), size=bsize, replace=cfg.replace)
-    boot = df_group.loc[idx]
+    boot = df_group.loc[idx].copy()
 
     if cfg.standardize:
-        boot = _standardize_in_place(boot, cols=colspec.std_cols)
+        cols = list(_std_cols(colspec))
+        scaler = StandardScaler()
+        boot.loc[:, cols] = scaler.fit_transform(boot.loc[:, cols])
 
     y, x1, x2 = colspec.y, colspec.x1, colspec.x2
-
-    # e.g. "metric_value ~ config" and "metric_value ~ config + confluence"
+    x2_term = _x2_term(colspec)
     formula_re = f"{y} ~ {x1}"
-    formula_fu = f"{y} ~ {x1} + {x2}"
+    formula_fu = f"{y} ~ {x1} + {x2_term}"
 
     res_re = _fit_ols_formula(boot, formula_re, cfg.robust_cov)
     res_fu = _fit_ols_formula(boot, formula_fu, cfg.robust_cov)
 
     beta_x1_re = res_re.params.get(x1, np.nan)
     beta_x1_fu = res_fu.params.get(x1, np.nan)
-    beta_x2    = res_fu.params.get(x2, np.nan)
-
-    r2_re  = float(getattr(res_re, "rsquared", np.nan))
-    r2_fu  = float(getattr(res_fu, "rsquared", np.nan))
-    ssr_re = float(getattr(res_re, "ssr", np.nan))
-    ssr_fu = float(getattr(res_fu, "ssr", np.nan))
-
-    # Incremental R² (delta R²)
-    if np.isfinite(r2_re) and np.isfinite(r2_fu):
-        delta_r2 = r2_fu - r2_re
-    else:
-        delta_r2 = np.nan
-
-    # Partial R² for x2
-    if np.isfinite(r2_re) and np.isfinite(r2_fu) and (1 - r2_re) > 0:
-        partial_r2_x2 = (r2_fu - r2_re) / (1 - r2_re)
-    elif np.isfinite(ssr_re) and np.isfinite(ssr_fu) and ssr_re > 0:
-        partial_r2_x2 = (ssr_re - ssr_fu) / ssr_re
-    else:
-        partial_r2_x2 = np.nan
-
-    # Cohen’s f² for x2
-    if np.isfinite(r2_fu) and (1 - r2_fu) > 0:
-        f2_x2 = (r2_fu - r2_re) / (1 - r2_fu)
-    else:
-        f2_x2 = np.nan
+    beta_x2 = np.nan if colspec.x2_categorical else res_fu.params.get(x2, np.nan)
+    effects = _compute_effect_sizes(res_re, res_fu)
 
     return {
-        # keep generic names so the code is column-agnostic
         "beta_x1_restricted": beta_x1_re,
         "beta_x1_full": beta_x1_fu,
         "beta_x2": beta_x2,
-        "r2_restricted": r2_re,
-        "r2_full": r2_fu,
-        "delta_r2": delta_r2,
-        "partial_r2_x2": partial_r2_x2,
-        "cohen_f2_x2": f2_x2,
+        **effects,
         "n_boot_rows": bsize,
-        "n_group_rows": n,
+        "n_group_rows": n_group,
     }
 
 

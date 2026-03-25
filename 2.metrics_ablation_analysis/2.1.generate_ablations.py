@@ -9,6 +9,7 @@ value is still be adjusted here). Please refer to sweeps.py for details.
 """
 
 import pathlib
+import yaml
 
 import numpy as np
 
@@ -23,10 +24,28 @@ from image_ablation_analysis.sweeps import (
     gamma_sweep
 )
 
+module_config_path = pathlib.Path("..") / '2.metrics_ablation_analysis' / 'config.yml'
+if not module_config_path.exists():
+    raise FileNotFoundError(f"Module config file not found: {module_config_path}")
+config = yaml.safe_load(module_config_path.read_text())
+print(config)
 
+data_split_path = pathlib.Path("..") / '0.data_preprocessing' / 'data_split_loaddata'
+if not data_split_path.exists() and not data_split_path.is_dir():
+    raise FileNotFoundError(f"Data split path not found: {data_split_path}")
+
+# Include all datasplits for model training for the ablation analysis as we 
+# are not training models here but assessing the metric sensitivity, so use
+# all available data we have
 loaddata_csvs = [
-    pathlib.Path("/home/weishanli/Waylab/pediatric_cancer_atlas_analysis/0.data_preprocessing/data_split_loaddata/loaddata_train.csv"),
+    data_split_path / file for file in ["loaddata_train.csv", "loaddata_eval.csv"]
 ]
+
+if not all([csv.exists() for csv in loaddata_csvs]):
+    missing_files = [csv for csv in loaddata_csvs if not csv.exists()]
+    raise FileNotFoundError(f"Loaddata CSV files not found: {missing_files}")
+else:
+    print(f"Loaddata CSV files found: {loaddata_csvs}")
 
 # Initialize AblationRunner
 # This object interacts with a local `images_root` of images and a corresponding
@@ -35,10 +54,10 @@ loaddata_csvs = [
 # the structure of the `images_root` directory. 
 runner = AblationRunner(
     images_root=pathlib.Path(
-        "/mnt/data_nvme1/data/ALSF_pilot_data/"
+        config['image_root']
     ),
     ablation_root=pathlib.Path(
-        "/mnt/hdd20tb/alsf_ablated/"
+        config['ablation_output_path']
     ),
     loaddata_csvs=loaddata_csvs,
     keep_meta_columns=None,
