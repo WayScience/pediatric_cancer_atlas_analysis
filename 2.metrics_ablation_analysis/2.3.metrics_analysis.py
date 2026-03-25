@@ -16,7 +16,6 @@ import ast
 import pandas as pd
 import pyarrow.parquet as pq
 
-from image_ablation_analysis.nb_utils import find_git_root
 from image_ablation_analysis.indexing import ParquetIndex
 from image_ablation_analysis.regression.nested_regression import (
     bootstrap_nested_regression,
@@ -31,7 +30,7 @@ from image_ablation_analysis.regression.visualization import plot_partial_r2_vs_
 # In[2]:
 
 
-module_config_path = find_git_root() / '2.metrics_ablation_analysis' / 'config.yml'
+module_config_path = pathlib.Path("..") / '2.metrics_ablation_analysis' / 'config.yml'
 if not module_config_path.exists():
     raise FileNotFoundError(f"Module config file not found: {module_config_path}")
 config = yaml.safe_load(module_config_path.read_text())

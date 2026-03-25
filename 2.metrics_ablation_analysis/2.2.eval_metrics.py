@@ -25,7 +25,6 @@ import torch
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
-from image_ablation_analysis.nb_utils import find_git_root
 from image_ablation_analysis.indexing import ParquetIndex
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.eval.metrics import (
@@ -49,7 +48,7 @@ from image_ablation_analysis.eval.eval_runner import EvalRunner
 # In[2]:
 
 
-module_config_path = find_git_root() / '2.metrics_ablation_analysis' / 'config.yml'
+module_config_path = pathlib.Path("..") / '2.metrics_ablation_analysis' / 'config.yml'
 if not module_config_path.exists():
     raise FileNotFoundError(f"Module config file not found: {module_config_path}")
 config = yaml.safe_load(module_config_path.read_text())
@@ -68,7 +67,7 @@ else:
 
 # ## Set cuda device used for accelarating metrics computation
 
-# In[ ]:
+# In[3]:
 
 
 # Prefer the second GPU for this evaluation analysis by PCIE order

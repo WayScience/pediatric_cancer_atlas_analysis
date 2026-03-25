@@ -13,7 +13,6 @@ import yaml
 
 import numpy as np
 
-from image_ablation_analysis.nb_utils import find_git_root
 from image_ablation_analysis.ablation_runner import AblationRunner
 from image_ablation_analysis.hooks.normalization import BitDepthNormalizer
 from image_ablation_analysis.sweeps import (
@@ -25,13 +24,13 @@ from image_ablation_analysis.sweeps import (
     gamma_sweep
 )
 
-module_config_path = find_git_root() / '2.metrics_ablation_analysis' / 'config.yml'
+module_config_path = pathlib.Path("..") / '2.metrics_ablation_analysis' / 'config.yml'
 if not module_config_path.exists():
     raise FileNotFoundError(f"Module config file not found: {module_config_path}")
 config = yaml.safe_load(module_config_path.read_text())
 print(config)
 
-data_split_path = find_git_root() / '0.data_preprocessing' / 'data_split_loaddata'
+data_split_path = pathlib.Path("..") / '0.data_preprocessing' / 'data_split_loaddata'
 if not data_split_path.exists() and not data_split_path.is_dir():
     raise FileNotFoundError(f"Data split path not found: {data_split_path}")
 
