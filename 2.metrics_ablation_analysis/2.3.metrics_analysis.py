@@ -14,7 +14,7 @@ import yaml
 import ast
 
 import pandas as pd
-import pyarrow.parquet as pq
+import polars as pl
 
 from image_ablation_analysis.indexing import ParquetIndex
 from image_ablation_analysis.regression.nested_regression import (
@@ -34,6 +34,8 @@ module_config_path = pathlib.Path("..") / '2.metrics_ablation_analysis' / 'confi
 if not module_config_path.exists():
     raise FileNotFoundError(f"Module config file not found: {module_config_path}")
 config = yaml.safe_load(module_config_path.read_text())
+results_dir = pathlib.Path(".") / "results"
+results_dir.mkdir(exist_ok=True) 
 
 abl_root = pathlib.Path(config['ablation_output_path']).resolve(strict=True)
 
@@ -48,10 +50,7 @@ if not metrics_dir.exists():
 # In[3]:
 
 
-dataset = pq.ParquetDataset(str(metrics_dir))
-
-table = dataset.read()
-df = table.to_pandas()
+df = pl.scan_parquet(str(metrics_dir / '*.parquet'), parallel="columns").collect().to_pandas()
 
 print(len(df))
 print(df.head())
@@ -161,6 +160,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_plate1_u2os, colspec, cfg)
+boot_res.to_csv(results_dir / "boot_res_plate1_u2os_nest_confluence.csv", index=False)
 
 
 # ### Visualize
@@ -215,6 +215,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_plate2_u2os, colspec, cfg)
+boot_res.to_csv(results_dir / "boot_res_plate2_u2os_nest_confluence.csv", index=False)
 
 
 # ### Visualize
@@ -264,6 +265,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_u2os_conf8000, colspec, cfg)
+boot_res.to_csv(results_dir / "boot_res_u2os_conf8000_nest_plate.csv", index=False)
 
 
 # ### Visualize
@@ -282,7 +284,7 @@ plot_partial_r2_vs_r2(
 
 # It seems like none of the metrics can pick up (and thus be biased by) any batch effect across plates!
 
-# ## Regression Analysis 4: All cell lines with confluence=8000, detecting how biased each metric is against cell lines
+# ## Regression Analysis 4A: All cell lines with confluence=8000, detecting how biased each metric is against cell lines
 # This is a lot more samples, expect regression w/th bootstrap to take >15 minutes.
 # 
 # If runtime is a problem tune down `n_boot` and/or `sample_frac` in `BootstrapConfig`
@@ -314,6 +316,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_c8000, colspec, cfg)
+boot_res.to_csv(results_dir / "boot_res_all_conf8000_nest_cell_line.csv", index=False)
 
 
 # ### Visualize
@@ -325,6 +328,42 @@ plot_partial_r2_vs_r2(
     boot_res=boot_res,
     panel_cols=["platemap_file", "ablation_type"],
     save_path=pathlib.Path("plots/all_conf8000_nest_cell.png"),
+    show=True,
+    **visualization_config
+)
+
+
+# ## Regression Analysis 4B: All cell lines with confluence=8000, detecting how biased each metric is against cell lines
+# A variant of 4A where the regression are no longer grouped by platemap and all cell lines across two plates are pooled for each regression model fit. 
+# 
+# If runtime is a problem tune down `n_boot` and/or `sample_frac` in `BootstrapConfig`
+
+# In[21]:
+
+
+colspec = ColumnSpec(
+    group_cols=("metric_name", "ablation_type"),
+    x2="cell_line", # categorical var
+    x2_categorical=True,
+    standardize_cols=("param_values",),
+    **regression_config
+)
+
+cfg = BootstrapConfig(
+    **bootstrap_config
+)
+
+boot_res = bootstrap_nested_regression(for_regression_c8000, colspec, cfg)
+boot_res.to_csv(results_dir / "boot_res_all_conf8000_nest_cell_line_pool_plate.csv", index=False)
+
+
+# In[22]:
+
+
+plot_partial_r2_vs_r2(
+    boot_res=boot_res,
+    panel_cols=["ablation_type"],
+    save_path=pathlib.Path("plots/all_conf8000_nest_cell_pool_plate.png"),
     show=True,
     **visualization_config
 )
