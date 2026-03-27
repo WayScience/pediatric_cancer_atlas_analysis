@@ -1,0 +1,38 @@
+name: image-ablation-plotting
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - jupyterlab
+  - notebook
+  - ipykernel
+  - r-base=4.4
+  - r-irkernel
+  - numpy
+  - pandas
+  - pyarrow
+  - polars
+  - matplotlib
+  - seaborn
+  - tifffile
+  - imagecodecs
+  - pillow
+  - jupyter
+  - ipython
+  - r-ggplot2
+  - r-dplyr
+  - r-tidyr
+  - r-readr
+  - r-stringr
+  - r-purrr
+  - r-forcats
+  - r-patchwork
+  - r-cowplot
+  - r-magick
+  - r-tiff
+  - r-scales
+  - r-svglite
+  - r-pdftools
+  - r-magick
+  - r-cowplot
