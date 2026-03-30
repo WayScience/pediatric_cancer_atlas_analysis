@@ -5,16 +5,24 @@ library(tidyr)
 library(stringr)
 library(purrr)
 
-boot_res <- read_csv("./results/boot_res_plate1_u2os_nest_confluence.csv", show_col_types = FALSE)
+bootstrap_results = list(
+    plate1_u2os_nest_confluence = read_csv("./results/boot_res_plate1_u2os_nest_confluence.csv", show_col_types = FALSE),
+    plate2_u2os_nest_confluence = read_csv("./results/boot_res_plate2_u2os_nest_confluence.csv", show_col_types = FALSE),
+    u2os_conf8000_nest_plate = read_csv("./results/boot_res_u2os_conf8000_nest_plate.csv", show_col_types = FALSE),
+    all_conf8000_nest_cell = read_csv("./results/boot_res_all_conf8000_nest_cell_line_pool_plate.csv", show_col_types = FALSE)
+)
 
-dim(boot_res)
-names(boot_res)
-head(boot_res)
+bootstrap_panel_cols = list(
+    plate1_u2os_nest_confluence = c("cell_line", "ablation_type"),
+    plate2_u2os_nest_confluence = c("cell_line", "ablation_type"),
+    u2os_conf8000_nest_plate = c("cell_line", "ablation_type"),
+    all_conf8000_nest_cell = c("ablation_type")
+)
 
-summary(select(boot_res, partial_r2_x2, r2_restricted))
+summary(select(bootstrap_results[["plate1_u2os_nest_confluence"]], partial_r2_x2, r2_restricted))
 
 # unique ablation types
-ablation_types <- unique(boot_res$ablation_type)
+ablation_types <- unique(bootstrap_results[["plate1_u2os_nest_confluence"]]$ablation_type)
 print(ablation_types)
 
 plot_partial_r2_vs_r2 <- function(
@@ -269,28 +277,38 @@ metric_pal <- c(
   "mae" = "#CCCCCC"  # gray
 )
 
-for (ablation_type in ablation_types) {
-  
-  p <- plot_partial_r2_vs_r2(
-    boot_res = boot_res %>% filter(ablation_type == !!ablation_type),
-    panel_cols = c("cell_line", "ablation_type"),
-    hue_col = "metric_name",
-    partial_col = "partial_r2_x2",
-    r2_col = "r2_restricted",
-    partial_label = "Partial R²",
-    r2_label = "Restricted R²",
-    n_cols = 1,
-    shade_alpha = 0.4,
-    free_scales = "free",
-    metric_palette = metric_pal,
-    metric_order = c("dists", "lpips", "foreground_ssim", "ssim", "foreground_psnr", "psnr", "mae")
-  )
+for (analysis_name in names(bootstrap_results)) {
 
-  ggsave(
-    paste0("./plots/plate2_u2os_nest_confluence_", ablation_type, ".pdf"),
-    p,
-    width = 7.5,
-    height = 4.5,
-  )
+  for (ablation_type in ablation_types) {
+
+    p <- plot_partial_r2_vs_r2(
+      boot_res = bootstrap_results[[analysis_name]] %>% filter(ablation_type == !!ablation_type),
+      panel_cols = bootstrap_panel_cols[[analysis_name]],
+      hue_col = "metric_name",
+      partial_col = "partial_r2_x2",
+      r2_col = "r2_restricted",
+      partial_label = "Partial R²",
+      r2_label = "Restricted R²",
+      n_cols = 1,
+      shade_alpha = 0.4,
+      free_scales = "free",
+      metric_palette = metric_pal,
+      metric_order = c("dists", "lpips", "foreground_ssim", "ssim", "foreground_psnr", "psnr", "mae")
+    )
+
+    ggsave(
+      paste0(
+        "./plots/fig_panels/",
+        analysis_name,
+        "_", 
+        ablation_type, 
+        ".pdf"
+      ),
+      p,
+      width = 7.5,
+      height = 4.5,
+    )
+
+  }
 
 }
