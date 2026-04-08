@@ -181,7 +181,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_plate1_u2os, colspec, cfg)
-boot_res.to_csv(results_dir / "boot_res_plate1_u2os_nest_confluence.csv", index=False)
+boot_res.to_parquet(results_dir / "boot_res_plate1_u2os_nest_confluence.parquet", index=False)
 
 
 # ### Visualize
@@ -236,7 +236,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_plate2_u2os, colspec, cfg)
-boot_res.to_csv(results_dir / "boot_res_plate2_u2os_nest_confluence.csv", index=False)
+boot_res.to_parquet(results_dir / "boot_res_plate2_u2os_nest_confluence.parquet", index=False)
 
 
 # ### Visualize
@@ -286,7 +286,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_u2os_conf8000, colspec, cfg)
-boot_res.to_csv(results_dir / "boot_res_u2os_conf8000_nest_plate.csv", index=False)
+boot_res.to_parquet(results_dir / "boot_res_u2os_conf8000_nest_plate.parquet", index=False)
 
 
 # ### Visualize
@@ -337,7 +337,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_c8000, colspec, cfg)
-boot_res.to_csv(results_dir / "boot_res_all_conf8000_nest_cell_line.csv", index=False)
+boot_res.to_parquet(results_dir / "boot_res_all_conf8000_nest_cell_line.parquet", index=False)
 
 
 # ### Visualize
@@ -375,7 +375,7 @@ cfg = BootstrapConfig(
 )
 
 boot_res = bootstrap_nested_regression(for_regression_c8000, colspec, cfg)
-boot_res.to_csv(results_dir / "boot_res_all_conf8000_nest_cell_line_pool_plate.csv", index=False)
+boot_res.to_parquet(results_dir / "boot_res_all_conf8000_nest_cell_line_pool_plate.parquet", index=False)
 
 
 # In[22]:

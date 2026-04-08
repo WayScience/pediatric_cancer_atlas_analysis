@@ -18,19 +18,23 @@
 # Mirrors the visualization in 2.3, except drawn in R
 
 # %% vscode={"languageId": "r"}
-library(readr)
-library(dplyr)
-library(ggplot2)
-library(tidyr)
-library(stringr)
-library(purrr)
+suppressPackageStartupMessages({
+    suppressWarnings(library(readr))
+    suppressWarnings(library(dplyr))
+    suppressWarnings(library(ggplot2))
+    suppressWarnings(library(tidyr))
+    suppressWarnings(library(stringr))
+    suppressWarnings(library(purrr))
+    suppressWarnings(library(arrow))
+    }
+)
 
 # %% vscode={"languageId": "r"}
 bootstrap_results = list(
-    plate1_u2os_nest_confluence = read_csv("./results/boot_res_plate1_u2os_nest_confluence.csv", show_col_types = FALSE),
-    plate2_u2os_nest_confluence = read_csv("./results/boot_res_plate2_u2os_nest_confluence.csv", show_col_types = FALSE),
-    u2os_conf8000_nest_plate = read_csv("./results/boot_res_u2os_conf8000_nest_plate.csv", show_col_types = FALSE),
-    all_conf8000_nest_cell = read_csv("./results/boot_res_all_conf8000_nest_cell_line_pool_plate.csv", show_col_types = FALSE)
+    plate1_u2os_nest_confluence = read_parquet("./results/boot_res_plate1_u2os_nest_confluence.parquet", show_col_types = FALSE),
+    plate2_u2os_nest_confluence = read_parquet("./results/boot_res_plate2_u2os_nest_confluence.parquet", show_col_types = FALSE),
+    u2os_conf8000_nest_plate = read_parquet("./results/boot_res_u2os_conf8000_nest_plate.parquet", show_col_types = FALSE),
+    all_conf8000_nest_cell = read_parquet("./results/boot_res_all_conf8000_nest_cell_line_pool_plate.parquet", show_col_types = FALSE)
 )
 
 bootstrap_panel_cols = list(
