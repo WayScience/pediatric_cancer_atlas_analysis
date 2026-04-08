@@ -50,22 +50,16 @@ if not metrics_dir.exists():
 # In[3]:
 
 
-df = pl.scan_parquet(str(metrics_dir / '*.parquet'), parallel="columns").collect().to_pandas()
-
-print(len(df))
-print(df.head())
-
-
-# In[4]:
-
-
-print(df.columns)
+# Load lazy here and only display schema and head to confirm the structure
+lf = pl.scan_parquet(str(metrics_dir / '*.parquet'), parallel="columns")
+print(lf.collect_schema().names())
+print(lf.head())
 
 
 # ## Shared boostrap/regression parameters
 # All regression analysis will share the same dependent variable, whichare the metric values as well as the first (restricted) independent variable which will be the parameter value. The full independent variable and the groupings of regression analysis will change based on the confounding variable being tested for.
 
-# In[5]:
+# In[4]:
 
 
 regression_config = {
@@ -94,20 +88,40 @@ visualization_config = {
 # ## Read in the ablation index & some wrangling
 # Contains ablation magnitude and type metadata needing for regression
 
+# In[5]:
+
+
+def wrangle_data_for_regression(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Post pandas materialization data wrangling helper
+    """
+
+    df['param_values'] = df['param_values'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    df['param_values'] = df['param_values'].apply(lambda x: x[0] if isinstance(x, (list, tuple)) and len(x) == 1 else x)
+    df['param_swept'] = df['param_swept'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    df['param_swept'] = df['param_swept'].apply(lambda x: x[0] if isinstance(x, (list, tuple)) and len(x) == 1 else x)
+
+    return df
+
+
 # In[6]:
 
 
 index = ParquetIndex(index_dir=abl_root / "ablated_index")
-index_df = index.read()
-index_df['param_values'] = index_df['param_values'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
-index_df['param_values'] = index_df['param_values'].apply(lambda x: x[0] if isinstance(x, (list, tuple)) and len(x) == 1 else x)
-index_df['param_swept'] = index_df['param_swept'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
-index_df['param_swept'] = index_df['param_swept'].apply(lambda x: x[0] if isinstance(x, (list, tuple)) and len(x) == 1 else x)
-index_df[["ablation_package", "ablation_type", "hash"]] = (
-    index_df["config_id"]
-    .str.split(":", n=2, expand=True, regex=False)
-)
-print(index_df.head())
+index_lf = index.read_lazy()
+
+# Extract ablation package, type, and hash from config_id
+# should be doable in lazy whereas those that require literal_eval or ast parsing should be done post materialization
+index_lf = index_lf.with_columns(
+    pl.col("config_id").str.split_exact(":", 2).alias("config_parts")
+).with_columns(
+    pl.col("config_parts").struct.field("field_0").alias("ablation_package"),
+    pl.col("config_parts").struct.field("field_1").alias("ablation_type"),
+    pl.col("config_parts").struct.field("field_2").alias("hash"),
+).drop("config_parts")
+
+print(lf.collect_schema().names())
+print(lf.head())
 
 
 # ## Merge metric eval output dataframe with ablation to produce dataframe for regression analysis
@@ -115,11 +129,18 @@ print(index_df.head())
 # In[7]:
 
 
-for_regression = pd.merge(
-    index_df,
-    df,
-    on=["original_abs_path", "aug_abs_path", "variant"]
+for_regression_lf = index_lf.join(
+    lf,
+    on=["original_abs_path", "aug_abs_path", "variant"],
+    how="inner",
 )
+
+# technically the materialization could be delayed further until after the
+# per condition filtering but since most of the regressions here
+# share large overlaps in rows materialized and the full materialization is not too large,
+# materilizing here avoids large time penalties of repeated materialization
+for_regression = for_regression_lf.collect().to_pandas()
+for_regression = wrangle_data_for_regression(for_regression)
 print(len(for_regression))
 
 
@@ -241,11 +262,11 @@ plot_partial_r2_vs_r2(
 for_regression_u2os_conf8000 = for_regression[
     (for_regression['cell_line'] == 'U2-OS') &
     (for_regression['seeding_density'] == 8000)
-]
+].copy()
 print(f"Number of samples in U2-OS with seeding density 8000: {len(for_regression_u2os_conf8000)}")
 
 # Encode plate1 vs plate2
-for_regression_u2os_conf8000.loc[:,'is_plate2'] = (for_regression_u2os_conf8000['platemap_file'] == 'Assay_Plate2_platemap').astype(int)
+for_regression_u2os_conf8000['is_plate2'] = (for_regression_u2os_conf8000['platemap_file'] == 'Assay_Plate2_platemap').astype(int)
 for_regression_u2os_conf8000.head()
 
 

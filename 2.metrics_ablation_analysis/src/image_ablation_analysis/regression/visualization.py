@@ -194,15 +194,15 @@ def plot_partial_r2_vs_r2(
             metric_data = combo_data[combo_data[hue_col] == hue_val]
 
             errorbar = ax.errorbar(
-                metric_data["r2_restricted_mean"],
-                metric_data["partial_r2_mean"],
+                metric_data["r2_restricted_mean"].values,
+                metric_data["partial_r2_mean"].values,
                 xerr=[
-                    metric_data["r2_restricted_err_lower"],
-                    metric_data["r2_restricted_err_upper"],
+                    metric_data["r2_restricted_err_lower"].values,
+                    metric_data["r2_restricted_err_upper"].values,
                 ],
                 yerr=[
-                    metric_data["partial_r2_err_lower"],
-                    metric_data["partial_r2_err_upper"],
+                    metric_data["partial_r2_err_lower"].values,
+                    metric_data["partial_r2_err_upper"].values,
                 ],
                 fmt="o",
                 label=hue_val,
