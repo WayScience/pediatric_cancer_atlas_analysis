@@ -1,0 +1,15 @@
+### Figure x. Quantifying metric response to magnitude of image degradation (ablation) and confounding biological factors - GaussianBlur. 
+- A-C. 
+Scatter plot visualization of bootstrapped nested regression models fitting a restricted model of linear regression of metric values on ablation magnitude (normalized) and a full model which additionally includes a continuous or categorical biological confounder. 
+For every metric, a separate nested bootstrap is performed to yield mean partial r^2 and restricted r^2 values alongside their 95% confidence intervals, which are visualized as single scatter points with error bars. 
+Shaded areas represent regions of the scatter plot where the partial r^2 value is equal to or smaller than a certain percentage of restricted r^2 (explains less than % of variance relative to the restricted model). 
+In general, lower the ratio of partial r^2 to restricted r^2 indicates less confounded metric. 
+- A. Nested regression analysis with seeding-density as confounder. Ablation type is GaussianBlur varying sigma. 
+Here all metrics apart from `dists` seemed insensitive to added bluriness of the image signified by close to 0 restricted r^2. 
+`dists` is mildly sensitive to bluriness yet also considerably confounded by seeding density.  
+- B. Nested regression analysis with categorical plate id as confounder.  Ablation type is GaussianBlur varying sigma. 
+Here all metrics are suprisingly not confounded by plate at all. 
+Deep learning based metrics `lpips` and `dists` are mildly sensitive whereas all other metrics are insensitive to blur.
+- C. Nested regression analysis with categorical cell type as confounder. 
+Ablation type is GaussianBlur varying sigma. Here all metrics apart from `dists` seemed to insensitive to mildly sensitive to blur and seemed heavily confounded by cell type, making them sub-optimal for evaluating virtual staining model generalization across cell types.  
+- Example patches for visually comparing ablations of various magnitude against un-transformed raw patch, showing U2-OS cell line plated with seeding densities D:1,000, E: 2,000, F: 4,000, G: 8,000, and H: 12,000. 

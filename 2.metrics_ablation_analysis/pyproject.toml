@@ -27,6 +27,8 @@ dependencies = [
     "lightning",
     "statsmodels",
     "pandera[pandas]",
+    "polars",
+    "jupytext",
 ]
 [project.optional-dependencies]
 dev = [
