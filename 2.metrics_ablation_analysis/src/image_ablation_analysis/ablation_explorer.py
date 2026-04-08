@@ -100,7 +100,7 @@ class AblationExplorer:
         self, 
         ablation_type: str, 
         param_swept: str,
-        additional_filter: dict = {},
+        additional_filter: dict | None = None,
     ):
         """
         Helper function to get candidate groups of original/augmented image sets for a given ablation type and parameter.
@@ -109,7 +109,7 @@ class AblationExplorer:
             (self.meta["ablation_type"] == ablation_type)
             & (self.meta["param_swept_name"] == param_swept)
         ]
-        if additional_filter:
+        if additional_filter is not None:
             for col, val in additional_filter.items():
                 m = m[m[col] == val]
                 if m.empty:
@@ -130,7 +130,7 @@ class AblationExplorer:
         sample_n_levels: int | None = None,
         grayscale_limits_from: Literal["original", "all"] = "original",
         crop_center: int | None = None,
-        additional_filter: dict = {},
+        additional_filter: dict | None = None,
     ):
         """
         Main function to plot a random combo of original + augmented images for
