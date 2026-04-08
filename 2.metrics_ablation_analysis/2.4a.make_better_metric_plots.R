@@ -1,3 +1,23 @@
+# -*- coding: utf-8 -*-
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .R
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.1
+#   kernelspec:
+#     display_name: R
+#     language: R
+#     name: ir
+# ---
+
+# %% [markdown]
+# # Generates metric ablation analysis figure and save as single panels
+# Mirrors the visualization in 2.3, except drawn in R
+
+# %% vscode={"languageId": "r"}
 library(readr)
 library(dplyr)
 library(ggplot2)
@@ -5,6 +25,7 @@ library(tidyr)
 library(stringr)
 library(purrr)
 
+# %% vscode={"languageId": "r"}
 bootstrap_results = list(
     plate1_u2os_nest_confluence = read_csv("./results/boot_res_plate1_u2os_nest_confluence.csv", show_col_types = FALSE),
     plate2_u2os_nest_confluence = read_csv("./results/boot_res_plate2_u2os_nest_confluence.csv", show_col_types = FALSE),
@@ -19,12 +40,15 @@ bootstrap_panel_cols = list(
     all_conf8000_nest_cell = c("ablation_type")
 )
 
+# %% vscode={"languageId": "r"}
 summary(select(bootstrap_results[["plate1_u2os_nest_confluence"]], partial_r2_x2, r2_restricted))
 
+# %% vscode={"languageId": "r"}
 # unique ablation types
 ablation_types <- unique(bootstrap_results[["plate1_u2os_nest_confluence"]]$ablation_type)
 print(ablation_types)
 
+# %% vscode={"languageId": "r"}
 plot_partial_r2_vs_r2 <- function(
   boot_res,
   panel_cols,
@@ -264,6 +288,7 @@ plot_partial_r2_vs_r2 <- function(
   return(p)
 }
 
+# %% vscode={"languageId": "r"}
 metric_pal <- c(
   "lpips"   = "#5E3C99",  # deep purple
   "dists"   = "#1F78B4",  # strong blue
