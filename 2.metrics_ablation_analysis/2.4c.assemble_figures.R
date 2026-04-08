@@ -17,9 +17,9 @@
 # showing two possible variants of organizing ablation results (by analysis type vs by ablation type) 
 
 # %% vscode={"languageId": "r"}
-library(magick)
-library(ggplot2)
-library(cowplot)
+suppressPackageStartupMessages(library(magick))
+suppressWarnings(library(ggplot2))
+suppressWarnings(library(cowplot))
 
 # %% vscode={"languageId": "r"}
 # --------------------------
