@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Any, Mapping, Optional
 
 import pandas as pd
+import polars as pl
 import pyarrow as pa
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
@@ -150,6 +151,38 @@ class ParquetIndex:
             return dset.to_table().to_pandas()
         except Exception:
             return pd.DataFrame()
+        
+    def read_lazy(self) -> pl.LazyFrame:
+        """
+        Read the index as a Polars LazyFrame for efficient querying.
+        Intended for testing and analysis purposes.
+
+        :return: LazyFrame containing all index records, or empty LazyFrame if no data.
+        :raises ValueError: If any parquet file in the index is missing required columns.
+        """
+        dset = self._open_dataset_safe()
+        if dset is None:
+            return pl.LazyFrame(
+                schema={
+                    "created_at": pl.Datetime("us"),
+                    "run_id": pl.Utf8,
+                    "original_abs_path": pl.Utf8,
+                    "original_rel_path": pl.Utf8,
+                    "aug_abs_path": pl.Utf8,
+                    "aug_rel_path": pl.Utf8,
+                    "variant": pl.Utf8,
+                    "config_id": pl.Utf8,
+                    "params_json": pl.Utf8,
+                }
+            )
+
+        self._validate_required_columns(dset.schema)
+
+        return pl.scan_parquet(
+            str(self.index_dir / "*.parquet"),
+            parallel="columns",
+            hive_partitioning=True,
+        )
 
     def materialize_seen_pairs(self) -> set[tuple[str, str]]:
         """
