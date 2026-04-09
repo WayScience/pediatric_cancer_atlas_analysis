@@ -3,7 +3,7 @@
 
 # # 4.1c. Run Model Inferences (UNeXt)
 # 
-# This notebook runs batch inference for trained virtual staining models (wGAN generator which is just UNet architecture) on the evaluation split of the pediatric cancer atlas imaging data.
+# This notebook runs batch inference for trained virtual staining modelson the evaluation split of the pediatric cancer atlas imaging data.
 # 
 # **Workflow:**
 # 1. Load the evaluation loaddata and single-cell feature tables, filtering to plates of interest.
@@ -47,7 +47,7 @@ from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
 # In[3]:
 
 
-INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference')
+INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference3')
 INFERENCE_DIR.mkdir(exist_ok=True) 
 
 
