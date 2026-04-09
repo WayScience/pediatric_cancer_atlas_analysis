@@ -40,11 +40,11 @@ from image_ablation_analysis.eval.masked_metrics import (
 # In[2]:
 
 
-EVAL_DIR = pathlib.Path('/mnt/hdd20tb/vsf_eval2/')
+EVAL_DIR = pathlib.Path('/mnt/hdd20tb/vsf_eval/')
 EVAL_DIR.mkdir(exist_ok=True, parents=True)
 EVAL_INDEX_FILE = EVAL_DIR / 'eval_index.parquet'
 
-INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference3') / 'checkpoint_index'
+INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference') / 'checkpoint_index'
 if not INFERENCE_DIR.is_dir():
     raise NotADirectoryError(f'Inference directory not found at {INFERENCE_DIR}')
 
