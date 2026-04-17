@@ -14,17 +14,38 @@ from virtual_stain_flow.transforms.normalizations import MaxScaleNormalize
 def prep_crop_dataset(
     loaddata_df: pd.DataFrame,
     sc_features: pd.DataFrame,
-    target_channel_keys: Optional[list[str]] = None,
+    input_channel_keys: list[str] | str,
+    patch_size: int = 256,
+    object_coord_x_field: str = "Metadata_Cells_Location_Center_X",
+    object_coord_y_field: str = "Metadata_Cells_Location_Center_Y",
+    fov: tuple[int, int] = (1080, 1080),
+    normalization_factor: int = 2**16 - 1,
 ) -> CropCellImageDataset:
     """
     Helper invoking the virtual_stain_flow dataset initialization steps
         to prepare a CropCellImageDataset from a loaddata DataFrame.
+        Largely a wrapper around the CPLoadDataImageDataset and CropCellImageDataset
+        initialization steps, with some additional configuration for normalization and channel keys.
 
     :param loaddata_df: DataFrame containing the loaddata information for 
         the samples to be included in the dataset
     :param sc_features: DataFrame containing the single-cell features 
         for the samples. The notebook initializes a global sc_features DataFrame
         that is used as default argument here. 
+    :param input_channel_keys: List of channel keys to be used as input for the dataset.
+        The only relevant channel configuration for inference purposes, 
+        as the specified channel(s) will be provided as input to the model.
+        Should match the model's expected input channels.
+    :param patch_size: Size of the image patches to be extracted around each cell. 
+        Default is 256.
+    :param object_coord_x_field: Name of the field in the loaddata DataFrame that contains 
+        the x-coordinates of the cell centers. Default is "Metadata_Cells_Location_Center_X".
+    :param object_coord_y_field: Name of the field in the loaddata DataFrame that contains 
+        the y-coordinates of the cell centers. Default is "Metadata_Cells_Location_Center_Y".
+    :param fov: Tuple specifying the field of view (FOV) dimensions of the original images. 
+        Default is (1080, 1080).
+    :param normalization_factor: Factor used for normalizing the pixel values. 
+        Default is 65535 (2^16 - 1), which is common for 16-bit images.
     :return: Initialized CropCellImageDataset ready for inference
     """
     cp_ids = CPLoadDataImageDataset(
@@ -34,18 +55,18 @@ def prep_crop_dataset(
         )
     crop_ds = CropCellImageDataset.from_dataset(
         cp_ids,
-        patch_size=256,
-        object_coord_x_field="Metadata_Cells_Location_Center_X",
-        object_coord_y_field="Metadata_Cells_Location_Center_Y",
-        fov=(1080, 1080),
+        patch_size=patch_size,
+        object_coord_x_field=object_coord_x_field,
+        object_coord_y_field=object_coord_y_field,
+        fov=fov,
     )
     crop_ds.transform = MaxScaleNormalize(
         p=1,
-        normalization_factor=2**16 - 1,  # normalize to [0, 1]
+        normalization_factor=normalization_factor,
     )
-    crop_ds.input_channel_keys = ["OrigBrightfield"]
-    # Any target channel is fine for eval as we only need input BF
-    crop_ds.target_channel_keys = ["OrigBrightfield"] \
-        if target_channel_keys is None else target_channel_keys
+    input_channel_keys = input_channel_keys \
+        if isinstance(input_channel_keys, list) else [input_channel_keys]
+    crop_ds.input_channel_keys = [input_channel_keys]
+    crop_ds.target_channel_keys = [input_channel_keys]
 
     return crop_ds
