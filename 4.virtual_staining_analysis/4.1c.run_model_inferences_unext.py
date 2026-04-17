@@ -3,7 +3,7 @@
 
 # # 4.1c. Run Model Inferences (UNeXt)
 # 
-# This notebook runs batch inference for trained virtual staining modelson the evaluation split of the pediatric cancer atlas imaging data.
+# This notebook runs batch inference for trained virtual staining models on the evaluation split of the pediatric cancer atlas imaging data.
 # 
 # **Workflow:**
 # 1. Load the evaluation loaddata and single-cell feature tables, filtering to plates of interest.
