@@ -30,8 +30,10 @@ def prep_crop_dataset(
     :param loaddata_df: DataFrame containing the loaddata information for 
         the samples to be included in the dataset
     :param sc_features: DataFrame containing the single-cell features 
-        for the samples. The notebook initializes a global sc_features DataFrame
-        that is used as default argument here. 
+        for the samples, resulting from Cell Profiler analysis. 
+        The only information being used in this function and downstream in
+        crop dataset generation is some form of cell/object coordinates which
+        is configured by object_coord_x_field and object_coord_y_field.  
     :param input_channel_keys: List of channel keys to be used as input for the dataset.
         The only relevant channel configuration for inference purposes, 
         as the specified channel(s) will be provided as input to the model.
