@@ -1,15 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # 4.1c. Run Model Inferences (UNeXt)
-# 
-# This notebook runs batch inference for trained virtual staining models on the evaluation split of the pediatric cancer atlas imaging data.
-# 
-# **Workflow:**
-# 1. Load the evaluation loaddata and single-cell feature tables, filtering to plates of interest.
-# 2. Initialise the checkpoint index so that already-completed inference tasks are skipped on re-runs.
-# 3. For each model run, load weights → iterate over (plate, row) groups → crop single-cell patches → run inference → write per-cell TIFF outputs and update the checkpoint index.
-# 4. Tear down the checkpoint session, cleaning up any empty run directories.
+# # Crop reference (Cell Painting ground truth) and write to disk with file index to facilitate downstream metric evaluation
 
 # In[1]:
 
@@ -18,6 +10,7 @@ import pathlib
 import sys
 import yaml
 
+import tifffile as tiff
 import pandas as pd
 import torch
 
@@ -25,33 +18,20 @@ import torch
 # temporary path hack before the package dependencies is determined and solved
 utils_path = pathlib.Path('.') / 'src'
 sys.path.append(str(utils_path))
-from vs_eval_utils.inference_checkpointing import ( # type: ignore
-    set_checkpoint_index,
-    get_checkpoint_index,
-    teardown_checkpoint_index,
-)
-from vs_eval_utils.model_loader import load_model_weights
-from vs_eval_utils.model_inference import inference_and_checkpoint
-from vs_eval_utils.ds_utils import prep_crop_dataset
+
 from vs_eval_utils.nb_utils import find_git_root
+from vs_eval_utils.ds_utils import prep_crop_dataset
+from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
 
 
 # In[2]:
 
 
-# virtual staining model and dataset
-from virtual_stain_flow.models.unext import ConvNeXtUNet
-from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
+REFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_reference')
+REFERENCE_DIR.mkdir(exist_ok=True) 
 
 
 # In[3]:
-
-
-INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference3')
-INFERENCE_DIR.mkdir(exist_ok=True) 
-
-
-# In[4]:
 
 
 ANALYSIS_REPO_ROOT = find_git_root()
@@ -71,7 +51,7 @@ if not SC_FEATURES_DIR.exists():
     raise FileNotFoundError(f"Single-cell features directory not found at {SC_FEATURES_DIR}")
 
 
-# In[5]:
+# In[4]:
 
 
 PLATES: list[str] | None = ["BR00143976", "BR00143977"]
@@ -140,7 +120,7 @@ def prep_crop_ds_wrap(loaddata_df: pd.DataFrame) -> CropCellImageDataset:
         raise e
 
 
-# In[6]:
+# In[5]:
 
 
 devices = {}
@@ -157,80 +137,83 @@ else:
 DEVICE = devices['NVIDIA RTX A6000']
 
 
-# In[7]:
+# In[6]:
 
 
-checked_run_path = pathlib.Path(
-    'checked_model_runs.csv'
-)
-if not checked_run_path.exists():
-    raise RuntimeError(f'Checked run info file not found at {checked_run_path}')
+ref_index_rows = []
 
-all_run_info_df = pd.read_csv(checked_run_path)
-unext_run_info_df = all_run_info_df[all_run_info_df['architecture'] == 'ConvNeXtUNet']
-print(f"Total UNet runs: {len(unext_run_info_df)}")
-unext_run_info_df.head()
-
-
-# In[8]:
-
-
-set_checkpoint_index(
-    checkpoint_root=pathlib.Path(
-        INFERENCE_DIR
-    )
-)
-
-
-# In[9]:
-
-
-df = get_checkpoint_index()
-df.head()
-
-
-# In[10]:
-
-
-for i, run_row in unext_run_info_df.reset_index(drop=True,inplace=False).iterrows():
-
-    run_id = run_row['run_id']
-    run_path = pathlib.Path(run_row["path"])
-    print(f"{i}. Processing run_id {run_id} at path {run_path}...")
-    try:
-        model = load_model_weights(
-            run_path,
-            device=DEVICE,
-            model_handle=ConvNeXtUNet,
-            model_config=None,
-            compile_model=False
-        )
-    except Exception:
-        model = None
-        print(f"Failed to load model for run_id {run_id} at path {run_path}, skipping...")
-
-    for conds, group in loaddata_df_sub.groupby(
+for conds, group in loaddata_df_sub.groupby(
         ['Metadata_Plate', 'row']
     ): 
 
-        try:
-            inference_and_checkpoint(
-                model=model,
-                model_metadata=run_row,
-                tasks=group,
-                dataset=None,
-                dataset_fn=prep_crop_ds_wrap,
-                output_root=pathlib.Path(INFERENCE_DIR),
-                output_flat=False,
-                device=DEVICE,
-            )
-        except Exception as e:
-            print(f"Error during inference for conditions {conds}: {e}")
-            continue        
+    plate, row = conds
 
+    write_sub_dir = REFERENCE_DIR / plate / row
+    write_sub_dir.mkdir(parents=True, exist_ok=True)
 
-# In[11]:
+    try:
+        dataset = prep_crop_ds_wrap(
+            group
+        )
+    except Exception as e:
+        print(f"Error processing group {conds}: {e}")
+        continue
 
+    try:
+        dataset.input_channel_keys = ['OrigBrightfield']
 
-teardown_checkpoint_index()
+        metadata = dataset.metadata.copy()
+        metadata['patch_idx'] = metadata.groupby(
+            ['Metadata_Plate', 'Metadata_Well', 'Metadata_Site']).cumcount()
+        meta_row_dicts = metadata.to_dict(orient='records')
+    except Exception as e:
+        print(f"Error preparing dataset for group {conds}: {e}")
+        continue
+
+    try:
+        for channel in config['data']['target_channel_keys']:
+
+            written_paths = []
+            dataset.target_channel_keys = [channel]
+
+            for i, meta in zip(
+                range(len(dataset)),
+                meta_row_dicts
+            ):
+                _, target_patch = dataset._get_raw_item(i)
+                write_file = write_sub_dir /\
+                    (
+                        f"{meta['Metadata_Plate']}_"
+                        f"{meta['Metadata_Well']}_"
+                        f"{meta['Metadata_Site']}_"
+                        f"{channel}_{meta['patch_idx']}.tif"
+                    )
+
+                try:
+                    tiff.imwrite(
+                            write_file,
+                            target_patch
+                        )
+                    written_paths.append(write_file)
+
+                except Exception as e:
+
+                    err_file = write_file.with_suffix('.err')
+                    err_file.touch(exist_ok=True)
+                    written_paths.append(err_file)
+
+            for path, meta in zip(written_paths, meta_row_dicts):
+                _meta = meta.copy()
+                _meta.update({
+                    'out_path': str(path),
+                    'channel': channel
+                })
+                ref_index_rows.append(_meta)
+
+    except Exception as e:
+        print(f"Error processing group {conds}: {e}")
+        continue
+
+ref_index_df = pd.DataFrame(ref_index_rows)
+ref_index_df.to_parquet(REFERENCE_DIR / 'reference_index.parquet', index=False)
 

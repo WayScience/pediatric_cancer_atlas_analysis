@@ -101,6 +101,11 @@ def inference_and_checkpoint(
             dataset = dataset_fn(tasks_todo)
         except Exception:
             raise ValueError("Failed to create dataset using dataset_fn.")
+    
+    metadata = dataset.metadata.copy()
+    metadata['patch_idx'] = metadata.groupby(
+        ['Metadata_Plate', 'Metadata_Well', 'Metadata_Site']).cumcount()
+    meta_row_dicts = metadata.to_dict(orient='records')
 
     try:
         dataloader = torch.utils.data.DataLoader(
@@ -134,14 +139,14 @@ def inference_and_checkpoint(
     inference: np.ndarray = torch.cat(inference_cache, dim=0).cpu().numpy().astype(np.float32)
     # refuse to write outputs and update checkpoint if number of outputs does
     # not match number of tasks, to avoid silent data corruption
-    if inference.shape[0] != len(dataset._metadata):
+    if inference.shape[0] != len(metadata):
         raise RuntimeError(
             f"Number of inference outputs ({inference.shape[0]}) "
-            f"does not match number of tasks ({len(dataset._metadata)})."
+            f"does not match number of tasks ({len(metadata)})."
         )    
 
     update_paths: list[pathlib.Path] = []
-    for idx, task in dataset._metadata.iterrows():
+    for i, task in enumerate(meta_row_dicts):         
 
         metadata_values: list[str] = [
             task[col] for col in METADATA_COLUMNS
@@ -154,13 +159,13 @@ def inference_and_checkpoint(
         output_path = construct_output_path(
             metadata_values=metadata_values,
             model_metadata_values=model_metadata_values,
-            patch_i=idx,
+            patch_i=task['patch_idx'],
             output_root=output_root,
             flat=output_flat,
         )
 
         try:
-            tiff.imwrite(output_path, inference[idx, ...])
+            tiff.imwrite(output_path, inference[i, ...])
             update_paths.append(output_path)
         except Exception:
             # If writing the output fails, we do not want to mark the task as completed in the checkpoint index, to avoid data corruption.
@@ -169,7 +174,7 @@ def inference_and_checkpoint(
             update_paths.append(err_file)
 
     update_checkpoint_batch(
-        tasks=dataset._metadata,
+        tasks=metadata,
         output_files=update_paths,
         model_metadata=model_metadata,
     )

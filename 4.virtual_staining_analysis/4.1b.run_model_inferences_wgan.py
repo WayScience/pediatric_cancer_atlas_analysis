@@ -3,7 +3,7 @@
 
 # # 4.1b. Run Model Inferences (wGAN)
 # 
-# This notebook runs batch inference for trained virtual staining models (wGAN architecture) on the evaluation split of the pediatric cancer atlas imaging data.
+# This notebook runs batch inference for trained virtual staining models (wGAN generator which is just UNet architecture) on the evaluation split of the pediatric cancer atlas imaging data.
 # 
 # **Workflow:**
 # 1. Load the evaluation loaddata and single-cell feature tables, filtering to plates of interest.
@@ -11,7 +11,7 @@
 # 3. For each model run, load weights → iterate over (plate, row) groups → crop single-cell patches → run inference → write per-cell TIFF outputs and update the checkpoint index.
 # 4. Tear down the checkpoint session, cleaning up any empty run directories.
 
-# In[ ]:
+# In[1]:
 
 
 import pathlib
@@ -36,7 +36,7 @@ from vs_eval_utils.ds_utils import prep_crop_dataset
 from vs_eval_utils.nb_utils import find_git_root
 
 
-# In[ ]:
+# In[2]:
 
 
 # virtual staining model and dataset
@@ -44,14 +44,14 @@ from virtual_stain_flow.models.unet import UNet
 from virtual_stain_flow.datasets.crop_cell_dataset import CropCellImageDataset
 
 
-# In[ ]:
+# In[3]:
 
 
 INFERENCE_DIR = pathlib.Path('/mnt/hdd20tb/vsf_inference')
 INFERENCE_DIR.mkdir(exist_ok=True) 
 
 
-# In[ ]:
+# In[4]:
 
 
 ANALYSIS_REPO_ROOT = find_git_root()
@@ -71,7 +71,7 @@ if not SC_FEATURES_DIR.exists():
     raise FileNotFoundError(f"Single-cell features directory not found at {SC_FEATURES_DIR}")
 
 
-# In[ ]:
+# In[5]:
 
 
 PLATES: list[str] | None = ["BR00143976", "BR00143977"]
@@ -140,7 +140,7 @@ def prep_crop_ds_wrap(loaddata_df: pd.DataFrame) -> CropCellImageDataset:
         raise e
 
 
-# In[ ]:
+# In[6]:
 
 
 devices = {}
@@ -154,25 +154,25 @@ if torch.cuda.is_available():
 else:
     print("No CUDA devices available")
 
-DEVICE = devices['NVIDIA RTX A6000']
+DEVICE = devices['NVIDIA GeForce RTX 3090']
 
 
-# In[ ]:
+# In[7]:
 
 
 checked_run_path = pathlib.Path(
-    '/mnt/hdd20tb/alpine_eval/checked_model_runs.csv'
+    'checked_model_runs.csv'
 )
 if not checked_run_path.exists():
     raise RuntimeError(f'Checked run info file not found at {checked_run_path}')
 
 all_run_info_df = pd.read_csv(checked_run_path)
 wgan_run_info_df = all_run_info_df[all_run_info_df['architecture'] == 'wGAN']
-print(f"Total wGAN runs: {len(wgan_run_info_df)}")
+print(f"Total UNet runs: {len(wgan_run_info_df)}")
 wgan_run_info_df.head()
 
 
-# In[ ]:
+# In[8]:
 
 
 set_checkpoint_index(
@@ -182,14 +182,14 @@ set_checkpoint_index(
 )
 
 
-# In[ ]:
+# In[9]:
 
 
 df = get_checkpoint_index()
 df.head()
 
 
-# In[ ]:
+# In[10]:
 
 
 for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows():
@@ -217,7 +217,7 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
 
     for conds, group in loaddata_df_sub.groupby(
         ['Metadata_Plate', 'row']
-    ):  
+    ): 
 
         try:
             inference_and_checkpoint(
@@ -235,7 +235,7 @@ for i, run_row in wgan_run_info_df.reset_index(drop=True,inplace=False).iterrows
             continue        
 
 
-# In[ ]:
+# In[11]:
 
 
 teardown_checkpoint_index()
