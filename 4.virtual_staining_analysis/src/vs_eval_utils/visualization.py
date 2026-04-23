@@ -363,6 +363,10 @@ def plot_cm_raw_metrics(
         missing = [d for d in density_levels if d not in density_palette]
         if missing:
             raise ValueError(f"density_palette missing density levels: {missing}")
+        density_palette = {
+            str(int(key)): val
+            for key, val in density_palette.items()
+        }
         density_label_map = {d: str(d) for d in density_levels}
     else:
         raise TypeError("density_palette must be None or a dict keyed by density value")
