@@ -143,6 +143,8 @@ for metric_name, metric_config in model_eval_dict.items():
             channel_palette=channel_palette,
             architecture_palette=architecture_palette,
             density_palette=density_palette,
+            show_channel_legend=True,
+            show=True
         )
 
     plot_dict['fig'].savefig(PLOT_SUBDIR / f"{metric_name}_heatmap.png", dpi=330)

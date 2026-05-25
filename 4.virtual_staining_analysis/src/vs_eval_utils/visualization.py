@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm, Normalize
 from matplotlib import cm as colorm, colors as mcolors
-from PyComplexHeatmap import *
+from PyComplexHeatmap import ClusterMapPlotter, HeatmapAnnotation, anno_simple
 
 
 def _make_discrete_palette(levels, palette=None, cmap_name="Set2", fallback_colors=None):
@@ -280,17 +280,19 @@ def plot_cm_raw_metrics(
         .reset_index()
     )
 
-    agg["row_id"] = agg.apply(
-        lambda r: f"{r['platemap_file']} | {r['cell_line']} | seed={r['seeding_density']}",
-        axis=1,
+    agg["row_id"] = (
+        agg["platemap_file"].astype(str)
+        + " | "
+        + agg["cell_line"].astype(str)
+        + " | seed="
+        + agg["seeding_density"].astype(str)
     )
-    agg["col_id"] = agg.apply(
-        lambda r: (
-            f"{r['Metadata_Model_architecture']} | "
-            f"{r['Metadata_Model_target_channels']} | "
-            f"train={r['Metadata_Model_train_density']}"
-        ),
-        axis=1,
+    agg["col_id"] = (
+        agg["Metadata_Model_architecture"].astype(str)
+        + " | "
+        + agg["Metadata_Model_target_channels"].astype(str)
+        + " | train="
+        + agg["Metadata_Model_train_density"].astype(str)
     )
 
     mat = agg.pivot(index="row_id", columns="col_id", values=value_col)
@@ -311,9 +313,18 @@ def plot_cm_raw_metrics(
         .loc[mat.columns]
         .copy()
     )
+
+    observed_architectures = [
+        arch for arch in pd.unique(col_meta["Metadata_Model_architecture"]) if pd.notna(arch)
+    ]
+    # best effort sorting to put known architectures in order before
+    # additional observed architectures
+    architecture_categories = list(arch_order) + [
+        arch for arch in observed_architectures if arch not in arch_order
+    ]
     col_meta["Metadata_Model_architecture"] = pd.Categorical(
         col_meta["Metadata_Model_architecture"],
-        categories=list(arch_order),
+        categories=list(architecture_categories),
         ordered=True,
     )
 
@@ -324,22 +335,22 @@ def plot_cm_raw_metrics(
         palette=architecture_palette,
         cmap_name="Set2",
         fallback_colors=["#4C78A8", "#F58518", "#54A24B", "#E45756", "#72B7B2"],
-    ) if not architecture_palette else architecture_palette
+    )
 
     channel_levels = list(pd.unique(col_meta["Metadata_Model_target_channels"]))
     channel_palette = _make_discrete_palette(
         channel_levels,
         palette=channel_palette,
         cmap_name="Set2",
-    ) if not channel_palette else channel_palette
+    )
 
     cell_levels = list(pd.unique(row_meta["cell_line"]))
     cell_palette = _make_discrete_palette(
         cell_levels,
         palette=cell_palette,
         cmap_name="Set2",
-    ) if not cell_palette else cell_palette
-
+    )
+    
     density_levels = sorted(
         pd.unique(
             pd.concat(
@@ -445,7 +456,7 @@ def plot_cm_raw_metrics(
         row_ha_dict[row_annotation_text] = anno_simple(
             row_meta[annotate_row + "_label"],
             add_text=True,
-            colors={"*": "white", " ": "white"}, # white for both to hide uneeded color
+            colors={"*": "white", " ": "white"}, # white for both to hide unneeded color
             legend=True,
             text_kws={"fontsize": 10, "fontweight": "bold"},
         )
