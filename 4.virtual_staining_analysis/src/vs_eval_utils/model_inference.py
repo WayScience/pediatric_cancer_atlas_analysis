@@ -63,6 +63,7 @@ def construct_output_path(
 def inference_and_checkpoint(
     model: torch.nn.Module,
     model_metadata: pd.Series | dict,
+    batch_size: int,
     tasks: pd.DataFrame,
     output_root: pathlib.Path,
     dataset: Optional[torch.utils.data.Dataset] = None,
@@ -75,6 +76,7 @@ def inference_and_checkpoint(
 
     :param model: The PyTorch model to use for inference.
     :param model_metadata: Metadata of the model being used for inference.
+    :param batch_size: Batch size to use for inference.
     :param tasks: DataFrame containing metadata of tasks to run inference on.
     :param dataset: Dataset to run inference on, which should be compatible with the tasks DataFrame.
     :param dataset_fn: Optional function to create a dataset if dataset is None.
@@ -110,7 +112,7 @@ def inference_and_checkpoint(
     try:
         dataloader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=48,
+            batch_size=batch_size,
             num_workers=4,
             pin_memory=False,
             shuffle=False,
