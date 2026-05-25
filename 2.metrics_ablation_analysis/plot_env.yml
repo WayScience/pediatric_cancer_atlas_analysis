@@ -36,3 +36,6 @@ dependencies:
   - r-pdftools
   - r-magick
   - r-cowplot
+  - r-gt
+  - r-webshot2
+  - r-ggtext
