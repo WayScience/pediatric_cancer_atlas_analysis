@@ -6,8 +6,10 @@ Class for visualizing random ablation examples with some level of filtering
 """
 
 import ast
+import json
 from pathlib import Path
 from typing import Literal
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -279,3 +281,154 @@ class AblationExplorer:
             return self.plot_random_combo(ablation_type=ablation_type, param_swept=param_swept, seed=seed)
 
         return _run
+
+    def save_random_combo_images(
+        self,
+        ablation_type: str,
+        param_swept: str,
+        output_dir: Path | str,
+        seed: int | None = None,
+        sample_n_levels: int | None = None,
+        grayscale_limits_from: Literal["original", "all"] = "original",
+        crop_center: int | None = None,
+        additional_filter: dict | None = None,
+    ) -> Path:
+        """
+        Save a random combo of original + augmented images as individual PNGs
+        in a subfolder under output_dir. Returns the subfolder path.
+
+        Filenames are formatted as "{param_swept}={value}.png". The original
+        image is saved as "{param_swept}=original.png".
+        """
+        if grayscale_limits_from not in {"original", "all"}:
+            raise ValueError("grayscale_limits_from must be one of {'original', 'all'}.")
+
+        groups = self._candidate_groups(ablation_type, param_swept, additional_filter)
+        if groups.empty:
+            raise ValueError(f"No groups found for ablation_type='{ablation_type}', param_swept='{param_swept}'.")
+
+        rng = np.random.default_rng(seed)
+        chosen = groups.iloc[rng.integers(0, len(groups))]
+        original_path = chosen["original_abs_path"]
+
+        subset = self.meta[
+            (self.meta["ablation_type"] == ablation_type)
+            & (self.meta["param_swept_name"] == param_swept)
+            & (self.meta["original_abs_path"] == original_path)
+        ].copy()
+
+        subset = subset.sort_values(["param_value_num", "param_value"], na_position="last")
+        subset = subset.drop_duplicates(subset=["param_value", "aug_abs_path"], keep="first").reset_index(drop=True)
+
+        if sample_n_levels is not None:
+            if sample_n_levels <= 0:
+                raise ValueError("sample_n_levels must be a positive integer or None.")
+            total_levels = len(subset)
+            if total_levels > sample_n_levels:
+                idx = np.linspace(0, total_levels - 1, num=sample_n_levels)
+                idx = np.unique(np.round(idx).astype(int))
+                subset = subset.iloc[idx].reset_index(drop=True)
+
+        param_values = subset["param_value"].tolist()
+        aug_paths = subset["aug_abs_path"].tolist()
+
+        panels = [("original", original_path)] + [(str(v), p) for v, p in zip(param_values, aug_paths)]
+
+        loaded = []
+        for label, p in panels:
+            img_path = Path(p)
+            if not img_path.exists():
+                loaded.append((label, p, None))
+                continue
+            loaded.append((label, p, plt.imread(img_path)))
+
+        def _minmax(img_list):
+            mins, maxs = [], []
+            for img in img_list:
+                if img is None or img.ndim != 2:
+                    continue
+                mins.append(np.nanmin(img))
+                maxs.append(np.nanmax(img))
+            if not mins:
+                return None, None
+            return float(np.min(mins)), float(np.max(maxs))
+
+        def _compute_center_crop_bb(im_h, im_w, crop_h, crop_w):
+            center_y, center_x = im_h // 2, im_w // 2
+            half_crop_h, half_crop_w = crop_h // 2, crop_w // 2
+            y1 = max(center_y - half_crop_h, 0)
+            y2 = min(center_y + half_crop_h, im_h)
+            x1 = max(center_x - half_crop_w, 0)
+            x2 = min(center_x + half_crop_w, im_w)
+            return y1, y2, x1, x2
+
+        if grayscale_limits_from == "original":
+            original_img = loaded[0][2] if loaded else None
+            gray_vmin, gray_vmax = _minmax([original_img])
+        else:
+            gray_vmin, gray_vmax = _minmax([img for _, _, img in loaded])
+
+        output_dir = Path(output_dir)
+        safe_seed = "random" if seed is None else str(seed)
+        subfolder_name = f"combo_{ablation_type}_{param_swept}_seed_{safe_seed}"
+        subfolder = output_dir / subfolder_name
+
+        if subfolder.exists():
+            # remove all contents if already exists
+            for f in subfolder.glob("*"):
+                if f.is_file():
+                    f.unlink()
+                elif f.is_dir():
+                    import shutil
+                    shutil.rmtree(f)
+
+        subfolder.mkdir(parents=True, exist_ok=True)
+
+        saved = []
+        for label, p, img in loaded:
+            if img is None:
+                saved.append({"label": label, "source_path": p, "saved_path": None})
+                continue
+
+            if crop_center is not None and img.ndim == 2:
+                im_h, im_w = img.shape
+                y1, y2, x1, x2 = _compute_center_crop_bb(im_h, im_w, crop_center, crop_center)
+                img = img[y1:y2, x1:x2]
+
+            if label == "original":
+                filename = f"{param_swept}=original.png"
+            else:
+                filename = f"{param_swept}={label}.png"
+
+            out_path = subfolder / filename
+            if img.ndim == 2:
+                plt.imsave(out_path, img, cmap="gray", vmin=gray_vmin, vmax=gray_vmax)
+            elif img.ndim == 3:
+                plt.imsave(out_path, img[0], cmap="gray", vmin=gray_vmin, vmax=gray_vmax)
+            else:
+                plt.imsave(out_path, img)
+
+            saved.append({"label": label, "source_path": p, "saved_path": str(out_path)})
+
+        metadata = {
+            "ablation_type": ablation_type,
+            "param_swept": param_swept,
+            "seed": seed,
+            "sample_n_levels": sample_n_levels,
+            "grayscale_limits_from": grayscale_limits_from,
+            "crop_center": crop_center,
+            "additional_filter": additional_filter,
+            "original_abs_path": original_path,
+            "param_values_sorted": param_values,
+            "aug_abs_paths_sorted": aug_paths,
+            "gray_vmin": gray_vmin,
+            "gray_vmax": gray_vmax,
+            "saved_images": saved,
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
+
+        meta_path = subfolder / "metadata.json"
+        with meta_path.open("w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
+
+        return subfolder
