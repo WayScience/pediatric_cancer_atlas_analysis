@@ -6,6 +6,7 @@
 
 import pathlib
 import yaml
+import gc
 
 import pandas as pd
 import polars as pl
@@ -17,10 +18,7 @@ import glasbey
 # In[2]:
 
 
-ANALYSIS_REPO_ROOT = (pathlib.Path(".") / '..').resolve() 
-LOADDATA_FILE_PATH = ANALYSIS_REPO_ROOT / '0.data_preprocessing' / 'data_split_loaddata'
-if not LOADDATA_FILE_PATH.exists():
-    raise FileNotFoundError(f"Loaddata path does not exist at {LOADDATA_FILE_PATH}")
+ANALYSIS_REPO_ROOT = (pathlib.Path(".") / '..').resolve()
 
 EVAL_DIR = pathlib.Path('/mnt/hdd20tb/vsf_eval2/')
 
@@ -41,6 +39,8 @@ for platemap, df in platemaps.items():
 platemap_df = pd.concat(platemaps.values(), ignore_index=True)
 platemap_df.drop(columns=["barcode", "time_point"], inplace=True)
 platemap_df.rename(columns={"well": "Metadata_Well"}, inplace=True)
+# drop unmapped platemaps
+platemap_df.dropna(subset=["Metadata_Well", "platemap_file"], inplace=True)
 platemap_df.head()
 
 
@@ -104,7 +104,7 @@ for subdir in eval_subdirs:
         eval_parquet_files.append(squashed_file)
         continue
 
-    if not any(list(subdir.glob('*'))):
+    if not any(subdir.glob('*')):
         print(f"Skipping empty dir {subdir.name}")
         # also remove empty dir
         subdir.rmdir()
@@ -113,15 +113,15 @@ for subdir in eval_subdirs:
     # Temporarily comment out to prevent previously un-squashed files
     # from being included here because some re-runs are still in progress.
 
-    # df = pl.scan_parquet(str(subdir / '*.parquet'), parallel="columns").collect()
-    # n_rows = df.shape[0]
-    # # squash to single parquet and write to disk
-    # df.write_parquet(squashed_file)
-    # print(f"Squashed {n_rows} rows to {squashed_file.name}")
-    # del df
-    # gc.collect()
+    df = pl.scan_parquet(str(subdir / '*.parquet'), parallel="columns").collect()
+    n_rows = df.shape[0]
+    # squash to single parquet and write to disk
+    df.write_parquet(squashed_file)
+    print(f"Squashed {n_rows} rows to {squashed_file.name}")
+    del df
+    gc.collect()
 
-    # eval_parquet_files.append(squashed_file)
+    eval_parquet_files.append(squashed_file)
 
 print(f"Total squashed parquet files: {len(eval_parquet_files)}")
 
@@ -148,15 +148,41 @@ eval_df_merge_platemap = pd.merge(
     eval_df_minimal,
     platemap_df,
     on=["platemap_file", "Metadata_Well"],
-    how="inner"
+    how="inner",
+    validate="many_to_one"
+ )
+
+eval_platemap_keys = eval_df_minimal[["platemap_file", "Metadata_Well"]].drop_duplicates()
+platemap_keys = platemap_df[["platemap_file", "Metadata_Well"]].drop_duplicates()
+missing_platemap = (
+    eval_platemap_keys
+    .merge(platemap_keys, on=["platemap_file", "Metadata_Well"], how="left", indicator=True)
+    .query("_merge == 'left_only'")
+    .drop(columns=["_merge"])
 )
+print(f"Missing platemap wells after join: {missing_platemap.shape[0]}")
+if not missing_platemap.empty:
+    print(missing_platemap.head(10))
 
 eval_df_merge_model = pd.merge(
     eval_df_merge_platemap,
     all_run_info_df,
     on=["Metadata_Model_path", "Metadata_Model_run_id"],
-    how="inner"
+    how="inner",
+    validate="many_to_one"
+ )
+
+eval_model_keys = eval_df_merge_platemap[["Metadata_Model_path", "Metadata_Model_run_id"]].drop_duplicates()
+model_keys = all_run_info_df[["Metadata_Model_path", "Metadata_Model_run_id"]].drop_duplicates()
+missing_model_runs = (
+    eval_model_keys
+    .merge(model_keys, on=["Metadata_Model_path", "Metadata_Model_run_id"], how="left", indicator=True)
+    .query("_merge == 'left_only'")
+    .drop(columns=["_merge"])
 )
+print(f"Missing model runs after join: {missing_model_runs.shape[0]}")
+if not missing_model_runs.empty:
+    print(missing_model_runs.head(10))
 
 print(f"Total rows after merging with model info: {eval_df_merge_model.shape[0]}")
 
