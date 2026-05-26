@@ -31,7 +31,7 @@ results_dir = pathlib.Path(".") / "results"
 if not results_dir.exists():
     raise FileNotFoundError(f"Results directory not found at {results_dir.resolve()}")
 
-regression_input_data_file = results_dir / "for_regression_subsampled.parquet"
+regression_input_data_file = results_dir / "for_analysis_subsampled.parquet"
 if not regression_input_data_file.exists():
     raise FileNotFoundError(f"Regression input data not found at {regression_input_data_file.resolve()}")
 
