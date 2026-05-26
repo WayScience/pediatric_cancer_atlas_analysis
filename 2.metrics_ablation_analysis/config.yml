@@ -1,0 +1,2 @@
+image_root: "/mnt/data_nvme1/data/ALSF_pilot_data/"
+ablation_output_path: "/mnt/hdd20tb/alsf_ablation/"

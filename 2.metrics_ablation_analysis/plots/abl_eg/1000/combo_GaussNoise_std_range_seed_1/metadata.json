@@ -1,0 +1,48 @@
+{
+  "ablation_type": "GaussNoise",
+  "param_swept": "std_range",
+  "seed": 1,
+  "sample_n_levels": 3,
+  "grayscale_limits_from": "original",
+  "crop_center": 256,
+  "additional_filter": {
+    "cell_line": "U2-OS",
+    "seeding_density": 1000
+  },
+  "original_abs_path": "/mnt/data_nvme1/data/ALSF_pilot_data/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1.tiff",
+  "param_values_sorted": [
+    0.1,
+    0.17320508075688773,
+    0.2449489742783178
+  ],
+  "aug_abs_paths_sorted": [
+    "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_gaussnoise=0.1_e473bcd5b5024cf6.tiff",
+    "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_gaussnoise=0.17320508075688773_efc0a2dc56bc7718.tiff",
+    "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_gaussnoise=0.2449489742783178_6a222423ed7dbcee.tiff"
+  ],
+  "gray_vmin": 184.0,
+  "gray_vmax": 33533.0,
+  "saved_images": [
+    {
+      "label": "original",
+      "source_path": "/mnt/data_nvme1/data/ALSF_pilot_data/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GaussNoise_std_range_seed_1/std_range=original.png"
+    },
+    {
+      "label": "0.1",
+      "source_path": "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_gaussnoise=0.1_e473bcd5b5024cf6.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GaussNoise_std_range_seed_1/std_range=0.1.png"
+    },
+    {
+      "label": "0.17320508075688773",
+      "source_path": "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_gaussnoise=0.17320508075688773_efc0a2dc56bc7718.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GaussNoise_std_range_seed_1/std_range=0.17320508075688773.png"
+    },
+    {
+      "label": "0.2449489742783178",
+      "source_path": "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_gaussnoise=0.2449489742783178_6a222423ed7dbcee.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GaussNoise_std_range_seed_1/std_range=0.2449489742783178.png"
+    }
+  ],
+  "created_at": "2026-05-25T20:29:42.998761Z"
+}

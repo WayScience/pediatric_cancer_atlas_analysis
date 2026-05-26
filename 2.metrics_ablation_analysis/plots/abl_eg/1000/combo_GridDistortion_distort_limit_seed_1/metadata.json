@@ -1,0 +1,48 @@
+{
+  "ablation_type": "GridDistortion",
+  "param_swept": "distort_limit",
+  "seed": 1,
+  "sample_n_levels": 3,
+  "grayscale_limits_from": "original",
+  "crop_center": 256,
+  "additional_filter": {
+    "cell_line": "U2-OS",
+    "seeding_density": 1000
+  },
+  "original_abs_path": "/mnt/data_nvme1/data/ALSF_pilot_data/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1.tiff",
+  "param_values_sorted": [
+    0.1,
+    0.4,
+    1.0
+  ],
+  "aug_abs_paths_sorted": [
+    "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_distort=(0.1,5)_8b45fe533dc58654.tiff",
+    "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_distort=(0.4,5)_cc7c9f196649cf8a.tiff",
+    "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_distort=(1.0,5)_1e8a947b3d658ba5.tiff"
+  ],
+  "gray_vmin": 184.0,
+  "gray_vmax": 33533.0,
+  "saved_images": [
+    {
+      "label": "original",
+      "source_path": "/mnt/data_nvme1/data/ALSF_pilot_data/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GridDistortion_distort_limit_seed_1/distort_limit=original.png"
+    },
+    {
+      "label": "0.1",
+      "source_path": "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_distort=(0.1,5)_8b45fe533dc58654.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GridDistortion_distort_limit_seed_1/distort_limit=0.1.png"
+    },
+    {
+      "label": "0.4",
+      "source_path": "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_distort=(0.4,5)_cc7c9f196649cf8a.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GridDistortion_distort_limit_seed_1/distort_limit=0.4.png"
+    },
+    {
+      "label": "1.0",
+      "source_path": "/mnt/hdd20tb/alsf_ablation/SN0313537/BR00143981__2024-07-04T20_18_13-Measurement 1/Images/r13c13f07p01-ch5sk1fk1fl1__xform_abl_distort=(1.0,5)_1e8a947b3d658ba5.tiff",
+      "saved_path": "plots/abl_eg/1000/combo_GridDistortion_distort_limit_seed_1/distort_limit=1.0.png"
+    }
+  ],
+  "created_at": "2026-05-25T20:29:43.867624Z"
+}
